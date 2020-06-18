@@ -1,0 +1,382 @@
+SCRIPT StartGame:
+    ISSTATE 15 1
+    IFTRUE DefaultEntryScript
+    SET 15 1
+    TEXT GameStartPrompt1
+    WAITFORFIRE
+    TEXT GameStartPrompt2
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+
+SCRIPT GoSquare:
+    GOEND TownSquare
+
+SCRIPT GoNeighborYard:
+    GOEND NeighborYard
+
+
+SCRIPT TalkNeighbor:
+    GOEND Neighbor
+
+SCRIPT GoStore:
+    GOEND Store
+
+SCRIPT GoHome:
+    GOEND Home
+
+SCRIPT GoGirlfriend:
+    GOEND Girlfriend
+
+SCRIPT look_Sofa:
+    TEXTEND lookAtSofa
+
+SCRIPT examine_Sofa:
+    ISSTATE 1 0
+    IFTRUE findCoinInSofa
+    TEXTEND sofaCoinAlreadyFound
+
+SCRIPT findCoinInSofa:
+    SET 1 1
+    TEXT foundCoinInSofa
+    TAKE coin_sofa
+    END
+
+SCRIPT look_coin:
+    TEXTEND coinDescription
+
+
+SCRIPT DefaultEntryScript:
+    LOCATIONTEXTEND
+
+
+####
+
+SCRIPT talk_paul:
+    GOEND Neighbor
+
+SCRIPT look_shovel:
+    TEXTEND lookAtShovel
+
+
+SCRIPT look_snowyard:
+    ISSTATE 2 0
+    IFTRUE look_snowyard_dirty
+    TEXTEND snowyardAfterCleaning
+    END
+SCRIPT look_snowyard_dirty:
+    TEXTEND snowyardBeforeCleaning
+
+SCRIPT cannotDoThat:
+    TEXTEND CannotDoThat
+
+SCRIPT use_shovel:
+    ISOBJECT snowyard
+    IFTRUE clean_snowyard1
+    ISOBJECT slope
+    IFTRUE clean_slope1
+    TEXTEND CannotDoThat
+
+SCRIPT clean_snowyard1:
+    ISSTATE 2 0
+    IFTRUE clean_snowyard2
+    TEXTEND alreadyCleanedSnowyard
+SCRIPT clean_snowyard2:
+    SET 2 1
+    TEXTEND cleanedSnowyard
+
+SCRIPT clean_slope1:
+    ISSTATE 2 0
+    IFTRUE cannotCleanSlopeYet
+    ISSTATE 4 0
+    IFTRUE clean_slope2
+    TEXTEND alreadyCleanedSlope
+
+SCRIPT cannotCleanSlopeYet:
+    TEXTEND cannotCleanSlopeYet
+
+SCRIPT clean_slope2:
+    SET 4 1
+    TEXTEND cleanedSlope
+
+SCRIPT talkabout_snowy_yard:
+    ISSTATE 3 0
+    IFTRUE PaulGivesTask
+    ISSTATE 2 1
+    IFTRUE PaulRewardsPlayerForTask
+    TEXTEND PaulsAssignmentNotFinished
+
+SCRIPT PaulGivesTask:
+    TAKE shovel
+    SET 3 1
+    TEXTEND PaulsTaskAssignment
+
+SCRIPT PaulRewardsPlayerForTask:
+    SET 2 2
+    SETITEMLOC topicSnowYard _LOST
+    TAKE coin_pauls_reward
+    TEXTEND PaulRewardsPlayer
+
+SCRIPT GoIceSpoiler:
+    GOEND IceSpoiler
+
+SCRIPT GoSealBeach:
+    ISSTATE 4 2
+    IFTRUE NotToSealShore
+    GOEND SealBeach
+
+SCRIPT NotToSealShore:
+    TEXTEND NotToSealShore
+
+SCRIPT look_seal:
+    TEXTEND seal_look
+
+SCRIPT look_broken_shovel:
+    TEXTEND broken_shovel_look
+
+SCRIPT look_slope:
+    TEXTEND slope_look_dirty
+
+SCRIPT stepOnSlope:
+    ISSTATE 4 0
+    IFTRUE stepOnDirtySlope
+    ISSTATE 4 1
+    IFTRUE stepOnCleanSlope
+    TEXTEND notSteppingOnSlopeAgain
+
+SCRIPT stepOnDirtySlope:
+    TEXTEND goOnDirtySlope
+SCRIPT stepOnCleanSlope:
+    SET 4 2
+    SETITEMLOC shovel _LOST
+    TEXT goOnCleanSlope
+    WAITFORFIRE
+    GOEND Iceberg
+
+
+SCRIPT take_icebergcoin:
+    SETITEMLOC coin_iceberg_floor _LOST
+    SET 5 1
+    TAKE coin_iceberg_held
+    TEXT pickedIcebergCoin
+    WAITFORFIRE
+    TEXT DepartIceberg1
+    WAITFORFIRE
+    TEXT DepartIceberg2
+    WAITFORFIRE
+    GOEND IslandShore
+
+SCRIPT buy_snowflower:
+    ISSTATE 5 1
+    IFTRUE buy_snowflower1
+    TEXTEND notEnoughCoins
+    END
+SCRIPT buy_snowflower1:
+    ISSTATE 2 2
+    IFTRUE buy_snowflower2
+    TEXTEND notEnoughCoins
+
+SCRIPT buy_snowflower2:
+    ISSTATE 1 1
+    IFTRUE buy_snowflower3
+    TEXTEND notEnoughCoins
+
+SCRIPT buy_snowflower3:
+    SETITEMLOC coin_iceberg_held _LOST
+    SETITEMLOC coin_pauls_reward _LOST
+    SETITEMLOC coin_sofa _LOST
+    SETITEMLOC snowflower_shelf _LOST
+    TAKE snowflower_held
+    SET 6 1
+    TEXTEND boughtSnowflower
+
+SCRIPT look_girlfriend:
+    TEXTEND look_girlfriend
+
+SCRIPT talk_girlfriend:
+    ISSTATE 6 0
+    IFTRUE talk_girlfriend_noflower
+    ISSTATE 6 1
+    IFTRUE talk_girlfriend_hasflower
+    TEXTEND alreadyGaveFlower
+
+SCRIPT talk_girlfriend_noflower:
+    TEXTEND talk_girlfriend_noflower
+SCRIPT talk_girlfriend_hasflower:
+    TEXTEND talk_girlfriend_hasflower
+
+SCRIPT give_snowflower:
+    ISOBJECT girlfriend
+    IFTRUE give_snowflower_yes
+    TEXTEND CannotDoThat
+
+SCRIPT give_snowflower_yes:
+    SET 6 2
+    SETITEMLOC snowflower_held _LOST
+    TEXT GiveGirlfriendSnowflower
+    WAITFORFIRE
+    GOEND Ending
+
+SCRIPT look_snowflower:
+    TEXTEND look_snowflower
+
+SCRIPT look_storeowner:
+    TEXTEND look_storeowner
+SCRIPT talk_storeowner:
+    TEXTEND talk_storeowner
+
+
+;; EXPANSION
+
+SCRIPT ArriveIslandShore:
+    ISSTATE 7 1
+    IFTRUE RevisitIslandShore
+    SET 7 1
+    TEXT ArrivalAtShore
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT GoIslandShore:
+    GOEND IslandShore
+
+SCRIPT RevisitIslandShore:
+    LOCATIONTEXTEND
+
+
+SCRIPT GoCaveEntrance:
+    GOEND CaveEntrance
+
+SCRIPT GoPenguinDoor:
+    GOEND PenguinDoor
+
+SCRIPT GoCaveForest:
+    GOEND CaveForest
+SCRIPT GoCaveOrchard:
+    GOEND CaveOrchard
+SCRIPT GoCaveStatue:
+    GOEND CaveStatue
+
+SCRIPT look_rocks:
+    TEXTEND look_rocks
+SCRIPT take_rock:
+    ISSTATE 8 1
+    IFTRUE rockAlreadyTaken
+    SET 8 1
+    TAKE pebble
+    TEXTEND take_rock
+SCRIPT rockAlreadyTaken:
+    TEXTEND rockAlreadyTaken
+SCRIPT look_pebble:
+    TEXTEND look_pebble
+SCRIPT use_pebble:
+    ISOBJECT appletree
+    IFTRUE get_apple
+    TEXTEND CannotDoThat
+SCRIPT get_apple:
+    TAKE apple_held
+    SETITEMLOC pebble _LOST
+    TEXTEND AppleTaken
+
+SCRIPT look_appletree:
+    TEXTEND look_appletree
+SCRIPT look_apple:
+    TEXTEND look_apple
+SCRIPT use_apple:
+    ISOBJECT statue
+    IFTRUE putdown_apple
+    TEXTEND CannotDoThat
+SCRIPT putdown_apple:
+    SETITEMLOC apple_ground CaveStatue
+    SETITEMLOC apple_held _LOST
+    SET 8 2
+    TEXT leave_apple
+    ISSTATE 8 2
+    IFTRUE statueCondition1
+    END
+SCRIPT eat_apple:
+    TEXTEND eat_apple
+SCRIPT look_flowers:
+    TEXTEND look_flowers
+SCRIPT take_flower:
+    ISSTATE 9 1
+    IFTRUE flowerAlreadyTaken
+    SET 9 1
+    TAKE flower
+    TEXTEND take_flower
+SCRIPT flowerAlreadyTaken:
+    TEXTEND flowerAlreadyTaken
+SCRIPT look_flower:
+    TEXTEND look_flower
+SCRIPT use_flower:
+    ISOBJECT statue
+    IFTRUE putdown_flower
+    TEXTEND CannotDoThat
+
+SCRIPT putdown_flower:
+    SETITEMLOC flower_ground CaveStatue
+    SETITEMLOC flower _LOST
+    SET 9 2
+    TEXT leave_flower
+    ISSTATE 8 2
+    IFTRUE statueCondition1
+    END
+
+SCRIPT statueCondition1:
+    ISSTATE 9 2
+    IFTRUE statueCondition2
+    END
+SCRIPT statueCondition2:
+    ISSTATE 8 2
+    IFTRUE statueConditionMet
+    END
+SCRIPT statueConditionMet:
+    WAITFORFIRE
+    TEXT statueSpeaks1
+    WAITFORFIRE
+    TEXT statueSpeaks2
+    WAITFORFIRE
+    GOEND TownSquare
+
+SCRIPT look_statue:
+    TEXTEND look_statue
+SCRIPT examine_statue:
+    TEXTEND examine_statue
+SCRIPT look_penguindoor:
+    TEXTEND look_penguindoor
+
+# UNNECESSARY EXTRA
+
+SCRIPT look_shipbottle:
+    TEXTEND look_shipbottle
+SCRIPT look_fishnet:
+    TEXTEND look_fishnet
+SCRIPT buy_shipbottle:
+    TEXTEND buy_shipbottle
+SCRIPT buy_fishnet:
+    TEXTEND buy_fishnet
+
+SCRIPT look_iceberg_islandshore:
+    TEXTEND look_iceberg_islandshore
+SCRIPT look_iceberg_SealBeach:
+    TEXTEND look_iceberg_SealBeach
+SCRIPT look_orchardflower:
+    TEXTEND look_orchardflower
+SCRIPT take_orchardflower:
+    TEXTEND take_orchardflower
+
+SCRIPT go_iceberg_islandshore:
+    TEXTEND go_iceberg_islandshore
+SCRIPT go_iceberg_SealBeach:
+    TEXTEND go_iceberg_SealBeach
+
+SCRIPT look_trees:
+    TEXTEND look_trees
+
+SCRIPT go_appletree:
+    TEXTEND go_appletree
+
+SCRIPT endingText:
+    TEXTEND locationEndingDesc
+
+SCRIPT look_paul:
+    TEXTEND look_paul
