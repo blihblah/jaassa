@@ -195,7 +195,7 @@ def write_texts(cfg, data, fname):
             write_compressed_string(data, f, v, v_orig)
 
 
-def generate_huffdict(cfg, data):
+def generate_huffdict(cfg, data, out_fname):
     """
     Generate the huffdict from the strings in all_inputs.
     """
@@ -208,7 +208,7 @@ def generate_huffdict(cfg, data):
     dictionary = huffmanencoder.create_dictionary(total_string)
     data['huffdict'] = dictionary
 
-    huffmanencoder.write_dictionary(dictionary, '../src/incbins/textdictionary.huffarc')
+    huffmanencoder.write_dictionary(dictionary, out_fname)
 
 
 def extract_displayed_strings(cfg, data):
@@ -815,6 +815,7 @@ def produce_data(cfgfile):
     constantsfname = cfg['out_files']['constants_output']
 
     commandsfname = cfg['out_files']['commands_output']
+    huffdictfname = cfg['out_files']['huffdict_output']
 
     prepare_graphics(cfg, data)
     write_palettes(cfg, data, palettefname)
@@ -822,7 +823,7 @@ def produce_data(cfgfile):
 
     # 3. Create the complete Huffdict.
 
-    generate_huffdict(cfg, data)
+    generate_huffdict(cfg, data, huffdictfname)
     # 4. Create the text archive section.
     write_texts(cfg, data, textfname)
     write_direction_names(data, directionsfname)
