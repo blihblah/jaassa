@@ -1370,9 +1370,9 @@ UIGFX_EMPTY_SCREEN_RLE: incbin "incbins/gfx_ui_chars_rle.bin"
 UIGFX_PATTERNS: incbin "incbins/gfx_ui.bin"
 CHARSET_PATTERNS: incbin "incbins/gfx_chars.bin"
 
-UIGFX_TITLESCREEN_GFX: incbin "incbins/gfx_titlegfx.bin"
-UIGFX_TITLESCREEN_RLE: incbin "incbins/gfx_titlerle.bin"
-UIGFX_TITLESCREEN_CRLE: incbin "incbins/gfx_title_crle.bin"
+UIGFX_TITLESCREEN_GFX: incbin "incbins/gfx_title.bin"
+UIGFX_TITLESCREEN_RLE: incbin "incbins/gfx_title_chars_rle.bin"
+UIGFX_TITLESCREEN_CRLE: incbin "incbins/gfx_title_colours.bin"
 
 ;; When reusing the engine, you can replace this.
 TitleScreen:

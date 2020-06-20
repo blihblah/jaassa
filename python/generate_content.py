@@ -3,6 +3,7 @@ from collections import OrderedDict
 
 import gfxconvert
 import huffmanencoder
+import produce_regular_gfx
 
 """
 TODO:
@@ -790,7 +791,6 @@ def produce_data(cfgfile):
     """Main entrypoint."""
 
     cfg = ConfigParser()
-    print("Cfgfile", cfgfile)
     cfg.optionxform = str
     cfg.read(cfgfile)
 
@@ -841,9 +841,38 @@ def produce_data(cfgfile):
 
     print("Codes:")
     print(list(CODE_ALPHA.items()))
-    pass
+
+
+def produce_gfx(cfgfile):
+    cfg = ConfigParser()
+    cfg.optionxform = str
+    cfg.read(cfgfile)
+
+    produce_regular_gfx.convert_font(
+        cfg.get('in_files', 'font'), cfg.get('out_files', 'font')
+    )
+    produce_regular_gfx.convert_sprite(
+        cfg.get('in_files', 'sprites'), cfg.get('out_files', 'sprites')
+    )
+    produce_regular_gfx.convert_titlescreen(
+        cfg.get('in_files', 'title'), cfg.get('out_files', 'title_base')
+    )
+    produce_regular_gfx.convert_gamescreen(
+        cfg.get('in_files', 'ui_view'), cfg.get('out_files', 'ui_view_base')
+    )
+
+
+
+
 
 
 if __name__ == "__main__":
     # produce_data(os.path.join("content", "samplecontent.cfg"))
-    produce_data(os.path.join("..", "resources", "penguingamecontent.cfg"))
+
+    cfgname = os.path.join("..", "resources", "penguingamecontent.cfg")
+
+    produce_gfx(cfgname)
+
+    produce_data(cfgname)
+
+
