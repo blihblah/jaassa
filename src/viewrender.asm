@@ -16,10 +16,7 @@ RenderLocationViewport:
 		pop hl
 		call UnrefHL
 		push hl
-		;; TODO: Read the memory referral
 
-
-		
 		;; Now, loop through the tiles.
 		;; First 7 lines with 14 tiles on each.
 		ld b, 7 * 14

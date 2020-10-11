@@ -702,7 +702,7 @@ ExecuteLocationScript:
 		;; Load the address of the entrance script for the current location
 		;; and execute it.
 		ld hl, (PLAYER_LOCATION)
-		ld de, 2+2+2  ;; Adjusted for the new location record
+		ld de, 2+2+2
 		add hl, de
 		ld b, (hl)
 		ld de, 4
@@ -1088,7 +1088,7 @@ UpdateTextBoxInFullSlow:
 
 UpdatePlayerLocation:
 		ld hl, (PLAYER_LOCATION)
-		ld de, 4 + 2 ;; Updated for new location structure
+		ld de, 4 + 2
 		add hl, de
 		ld (PLAYER_LOCATION_DIRECTIONS), hl
 		ret

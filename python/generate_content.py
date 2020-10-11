@@ -396,6 +396,7 @@ def as_locationlabel(s):
 def as_palettelabel(s):
     return LABELTEMPLATE_PALETTE.format(s)
 
+
 def as_graphicsviewlabel(s):
     return LABELTEMPLATE_GRAPHICSVIEW.format(s)
 
@@ -595,18 +596,6 @@ def write_locations(data, outfn):
             f.write("DW {} ;; Start of tile dictionary location\n".format(
                 as_palettelabel(loc)
             ))
-            # Graphics tiles, 14x14 bytes.
-            #locgfx = d['locgfx']
-            #converted_tiles, pal = locgfx.convert()
-            #data['gfxviews'][loc] = converted_tiles
-
-            #for y in range(14):
-            #    f.write("DB ")
-            #    for x in range(14):
-            #        if x > 0:
-            #            f.write(", ")
-            #        f.write("{}".format(converted_tiles[(x, y)]))
-            #    f.write("\n")
             f.write("DW {} ;; Reference to graphics data\n".format(
                 as_graphicsviewlabel(loc)))
 
