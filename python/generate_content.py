@@ -7,9 +7,10 @@ import produce_regular_gfx
 
 """
 TODO:
-- separate location gfx record (14*14 bytes)
+- permit reuse of same PNG in multiple locations
 - sort gfx tiles by total frequency, then compress them
-- "stable" code for items (to avoid RAM storing, point location to starting location)
+- "stable" code for items (to avoid RAM storing, point location to starting 
+  location)
 
 """
 
@@ -23,7 +24,8 @@ CODE_ALPHA = dict((c, ord(c) - ord('a') + 3)
                   for c in "abcdefghijklmnopqrstuvwxyz")
 CODE_ALPHA.update(dict((c, ord(c) - ord('A') + 3)
                        for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-CODE_ALPHA.update(dict((c, len(CODE_ALPHA) + i + 3) for i, c in enumerate(" 0123456789;:.,-!?'\"")))
+CODE_ALPHA.update(dict((c, len(CODE_ALPHA) + i + 3)
+                       for i, c in enumerate(" 0123456789;:.,-!?'\"")))
 
 LABELTEMPLATE_TEXT = "__TXT_{}"
 LABELTEMPLATE_ITEM = "__ITEM_{}"
@@ -230,7 +232,8 @@ def extract_displayed_strings(cfg, data):
 def parse_scriptfile(data, infilename):
     scripts = {}
     current_script = None
-    valid_ends = [COMMAND_MAP[s] for s in ("END", "GOEND", "TEXTEND", "TAKEEND", "LOCATIONTEXTEND")]
+    valid_ends = [COMMAND_MAP[s] for s in ("END", "GOEND", "TEXTEND", "TAKEEND",
+                                           "LOCATIONTEXTEND")]
     with open(infilename, 'r') as f:
         for line in f:
             line = line.strip()
@@ -304,7 +307,8 @@ def write_script(data, script_commands, outfn):
     with open(outfn, "w") as f:
         f.write(";;; Game scripts \n")
         for script, cmds in script_commands.items():
-            f.write("  {}: ;; Script {}\n".format(as_scriptlabel(script), script))
+            f.write("  {}: ;; Script {}\n".format(
+                as_scriptlabel(script), script))
             for cmd in cmds:
                 f.write("  DB {}\n".format(cmd[0]))
                 if cmd[0] == 0:  # END
@@ -462,7 +466,9 @@ def write_palettes(cfg, data, fname):
             ctvd, palette = locgfx.convert()
             f.write("{}:\nDB ".format(as_palettelabel(loc_name)))
             encoded = palette.encode()
-            f.write(", ".join(["$" + ("00" + hex(v)[2:])[-2:] for v in encoded]) + "\n")
+            f.write(", ".join(
+                ["$" + ("00" + hex(v)[2:])[-2:] for v in encoded]) + "\n")
+
 
 def write_graphicsview(cfg, data, fname):
     with open(fname, 'w') as f:
@@ -572,7 +578,8 @@ class LocationGraphics(object):
         converted = {}
         for y in range(14):
             for x in range(14):
-                converted[(x, y)] = palette.tile2palette[self.original_tiles[(x, y)]]
+                converted[(x, y)] = palette.tile2palette[
+                    self.original_tiles[(x, y)]]
         return converted, palette
 
 
@@ -600,18 +607,19 @@ def write_locations(data, outfn):
                 as_graphicsviewlabel(loc)))
 
             dir_c = len(d['scripts'])
-            f.write("DB {}  ; Number of direction script entries here\n".format(dir_c))
+            f.write("DB {}  ; Number of direction script entries here\n"
+                    .format(dir_c))
             for dir_id in sorted(d['scripts'].keys()):
                 for cmd, lbl in sorted(d['scripts'][dir_id].items()):
                     cmd = cmd.lower()
-                    f.write("DB {}, {} ; Direction id, command id\n".format(DIRECTION_VALUES[dir_id],
-                                                                            PLAYER_COMMANDS[cmd]))
-                    f.write("DW {} ; Location of invoked script\n".format(as_scriptlabel(
-                        lbl)))
+                    f.write("DB {}, {} ; Direction id, command id\n"
+                            .format(DIRECTION_VALUES[dir_id],
+                                    PLAYER_COMMANDS[cmd]))
+                    f.write("DW {} ; Location of invoked script\n"
+                            .format(as_scriptlabel(lbl)))
             if "entrancescript" in d:
-                f.write("DW {} ; Location of script executed when entering.\n".format(
-                    as_scriptlabel(d['entrancescript'])
-                ))
+                f.write("DW {} ; Location of script executed when entering.\n"
+                        .format(as_scriptlabel(d['entrancescript'])))
             else:
                 f.write("DB $ff, $ff; No entry script.\n")
 
@@ -662,15 +670,18 @@ def write_item(cfg, data, outfname, outramfname):
         f.write(";;; All item init locations.\n")
         f.write("ITEM_INIT_LOCATIONS:\n")
         f.write("  DW " + ", ".join(
-            [as_locationlabel(item_d['location']) for item, item_d in data['items'].items()]
+            [as_locationlabel(item_d['location'])
+             for item, item_d in data['items'].items()]
         ) + "\n")
         f.write(";;; Item ROM record.\n")
         for item, item_d in data['items'].items():
             f.write("{}:\n".format(as_itemlabel(item)))
-            f.write("  DW {} ; Item name\n".format(as_textlabel(item_d['name'])))
-            f.write("  DW {} ; RAM address\n".format(as_itemlabel_RAM(item)))
-            # f.write("  DW {} ; Original location\n".format(as_locationlabel(item_d['location'])))
-            f.write("  DB {} ; Number of commands\n".format(len(item_d['scripts'])))
+            f.write("  DW {} ; Item name\n"
+                    .format(as_textlabel(item_d['name'])))
+            f.write("  DW {} ; RAM address\n"
+                    .format(as_itemlabel_RAM(item)))
+            f.write("  DB {} ; Number of commands\n"
+                    .format(len(item_d['scripts'])))
 
             for cmd, scr in item_d['scripts'].items():
                 f.write("    DB {} \n".format(cmd))
@@ -759,7 +770,8 @@ def write_tilegfx(cfg, data, fname):
 
     with open(fname, 'w') as f:
         f.write(";; Graphics data.\n"
-                ";; Each pattern takes 9 bytes; 8 for pattern, 1 for colour table index\n")
+                ";; Each pattern takes 9 bytes; 8 for pattern,\n"
+                ";; 1 for colour table index\n")
         # Create the colour table.
         all_colours = set([])
         defined_chars = data['graphics']['defined_chars']
@@ -769,15 +781,16 @@ def write_tilegfx(cfg, data, fname):
 
         colour_remap = merge_colour_codes(all_colours)
 
-        f.write("TILE_COLOUR_TABLE:\n ;; 8 bytes for each distinct colour character.\n")
+        f.write("TILE_COLOUR_TABLE:\n"
+                ";; 8 bytes for each distinct colour character.\n")
         all_colours = list(set(colour_remap.values()))
 
         assert len(all_colours) < 256  # Cannot have more colour patterns now
 
         for ind, clr in enumerate(all_colours):
-            #            f.write(", ".join(["$" + ("00" + hex(v)[2:])[-2:] for v in encoded]) + "\n")
-
-            f.write("    DB " + ", ".join(["$" + ("00" + hex(c)[2:])[-2:] for c in clr]) + " ; {}\n".format(ind))
+            f.write("    DB " +
+                    ", ".join(["$" + ("00" + hex(c)[2:])[-2:] for c in clr]) +
+                    " ; {}\n".format(ind))
         f.write("\n")
         f.write("TILE_PATTERN_TABLE:\n ;; tile patterns for each tile.\n")
 
@@ -787,17 +800,21 @@ def write_tilegfx(cfg, data, fname):
             clr = colour_remap[clr]
             ptrn = gfxconvert.convert_to_palette(ch_pattern, clr)
             f.write(
-                "    DB " + ", ".join(intlist_to_string(ptrn)) + ",  " + str(all_colours.index(clr)) + "; {}\n".format(
-                    ch_ind))
+                "    DB " + ", ".join(intlist_to_string(ptrn)) + ",  " +
+                str(all_colours.index(clr)) + "; {}\n".format(ch_ind))
 
 
 def write_constants(outfname):
     with open(outfname, 'w') as f:
         f.write(";; Constants from the pregenerator.\n")
-        f.write("C_PLAYER_INVENTORY: EQU {}\n".format(CONSTANT_MAP[TC_INVENTORY_LOC]))
-        f.write("C_ITEM_LIMBO: EQU {}\n".format(CONSTANT_MAP[TC_LOST_LOC]))
-        f.write("C_PLAYER_LOCATION: EQU {}\n".format(CONSTANT_MAP[TC_PLAYER_LOC]))
-        f.write("CMD_USE: EQU {}\n".format(PLAYER_COMMANDS['use']))
+        f.write("C_PLAYER_INVENTORY: EQU {}\n"
+                .format(CONSTANT_MAP[TC_INVENTORY_LOC]))
+        f.write("C_ITEM_LIMBO: EQU {}\n"
+                .format(CONSTANT_MAP[TC_LOST_LOC]))
+        f.write("C_PLAYER_LOCATION: EQU {}\n"
+                .format(CONSTANT_MAP[TC_PLAYER_LOC]))
+        f.write("CMD_USE: EQU {}\n"
+                .format(PLAYER_COMMANDS['use']))
 
 
 def produce_data(cfgfile):
@@ -806,7 +823,6 @@ def produce_data(cfgfile):
     cfg = ConfigParser()
     cfg.optionxform = str
     cfg.read(cfgfile)
-
 
     # 1. Collect all items.
 
@@ -876,10 +892,6 @@ def produce_gfx(cfgfile):
     produce_regular_gfx.convert_gamescreen(
         cfg.get('in_files', 'ui_view'), cfg.get('out_files', 'ui_view_base')
     )
-
-
-
-
 
 
 if __name__ == "__main__":
