@@ -14,8 +14,9 @@ RenderLocationViewport:
 		push hl
 		call UnpackTilePalette
 		pop hl
+		call UnrefHL
 		push hl
-		
+
 		;; Now, loop through the tiles.
 		;; First 7 lines with 14 tiles on each.
 		ld b, 7 * 14
