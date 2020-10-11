@@ -39,6 +39,22 @@ HKEY: equ $FD9F
 KEYS: equ $FBE5
 
 
+;; How the different memory pages are used.
+;; Page 0, BIOS.
+;; Page 1, program code.
+;; Page 2, game content, swapped in and out.
+;; Page 3, RAM.
+
+;; Pages in game ROM:
+;; 0: program code
+;; 1: scripts and items
+;; 2: strings
+;; 3: graphics
+;; 4: graphics
+;; 5: strings
+
+
+
 
 start: 
 	;; Code lifted from Transball
@@ -686,7 +702,7 @@ ExecuteLocationScript:
 		;; Load the address of the entrance script for the current location
 		;; and execute it.
 		ld hl, (PLAYER_LOCATION)
-		ld de, 2+2+14*14
+		ld de, 2+2+2  ;; Adjusted for the new location record
 		add hl, de
 		ld b, (hl)
 		ld de, 4
@@ -1072,7 +1088,7 @@ UpdateTextBoxInFullSlow:
 
 UpdatePlayerLocation:
 		ld hl, (PLAYER_LOCATION)
-		ld de, 4 + 14*14
+		ld de, 4 + 2 ;; Updated for new location structure
 		add hl, de
 		ld (PLAYER_LOCATION_DIRECTIONS), hl
 		ret
@@ -1440,6 +1456,9 @@ LOCATION_RECORDS:
 
 PALETTES:
 		INCLUDE "pregen/palette.asm_pregen"
+
+GFXVIEWS:
+        INCLUDE "pregen/gfxview.asm_pregen"
 
 TEXTS:
 		INCLUDE "pregen/texts.asm_pregen"

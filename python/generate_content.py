@@ -31,6 +31,7 @@ LABELTEMPLATE_LOCATION = "__LOCATION_{}"
 LABELTEMPLATE_SCRIPT = "__S_{}"
 LABELTEMPLATE_PALETTE = "__PALETTE_{}"
 LABELTEMPLATE_ITEM_RAM = "__ITEMRAM_{}"
+LABELTEMPLATE_GRAPHICSVIEW = "___GFXVIEW_{}"
 CFG_SCRIPT_HEAD = "script_"
 CFG_ITEM_HEAD = "item_"
 CFG_LOCATION_HEAD = "location_"
@@ -356,6 +357,7 @@ def read_input(cfg):
         'used_texts': set([]),
         'used_scripts': set([]),
         'scripts': {},
+        'gfxviews': {}
     }
     print("Reading input")
     for s in cfg.sections():
@@ -393,6 +395,9 @@ def as_locationlabel(s):
 
 def as_palettelabel(s):
     return LABELTEMPLATE_PALETTE.format(s)
+
+def as_graphicsviewlabel(s):
+    return LABELTEMPLATE_GRAPHICSVIEW.format(s)
 
 
 def intlist_to_string(s):
@@ -445,6 +450,7 @@ def prepare_graphics(cfg, data):
         locgfx = LocationGraphics()
         locgfx.original_tiles = used_orig_tiles
         data['locations'][loc_name]['locgfx'] = locgfx
+        data['gfxviews'][loc_name] = locgfx
 
 
 def write_palettes(cfg, data, fname):
@@ -456,6 +462,20 @@ def write_palettes(cfg, data, fname):
             f.write("{}:\nDB ".format(as_palettelabel(loc_name)))
             encoded = palette.encode()
             f.write(", ".join(["$" + ("00" + hex(v)[2:])[-2:] for v in encoded]) + "\n")
+
+def write_graphicsview(cfg, data, fname):
+    with open(fname, 'w') as f:
+        f.write(";; Graphics views\n")
+        for gfx_name, gfx_d in data['gfxviews'].items():
+            ctvd, palette = gfx_d.convert()
+            f.write("{}:\n".format(as_graphicsviewlabel(gfx_name)))
+            for y in range(14):
+                f.write("DB ")
+                for x in range(14):
+                    if x > 0:
+                        f.write(", ")
+                    f.write("{}".format(ctvd[(x, y)]))
+                f.write("\n")
 
 
 class Palette(object):
@@ -571,20 +591,24 @@ def write_locations(data, outfn):
             f.write("DW {}  ;; Location description\n".format(
                 as_textlabel(d['description'])))
             # Which tile dictionary to use (2 bytes)
+            # TODO: move this to the graphics data as well?
             f.write("DW {} ;; Start of tile dictionary location\n".format(
                 as_palettelabel(loc)
             ))
             # Graphics tiles, 14x14 bytes.
-            locgfx = d['locgfx']
-            converted_tiles, pal = locgfx.convert()
+            #locgfx = d['locgfx']
+            #converted_tiles, pal = locgfx.convert()
+            #data['gfxviews'][loc] = converted_tiles
 
-            for y in range(14):
-                f.write("DB ")
-                for x in range(14):
-                    if x > 0:
-                        f.write(", ")
-                    f.write("{}".format(converted_tiles[(x, y)]))
-                f.write("\n")
+            #for y in range(14):
+            #    f.write("DB ")
+            #    for x in range(14):
+            #        if x > 0:
+            #            f.write(", ")
+            #        f.write("{}".format(converted_tiles[(x, y)]))
+            #    f.write("\n")
+            f.write("DW {} ;; Reference to graphics data\n".format(
+                as_graphicsviewlabel(loc)))
 
             dir_c = len(d['scripts'])
             f.write("DB {}  ; Number of direction script entries here\n".format(dir_c))
@@ -794,7 +818,6 @@ def produce_data(cfgfile):
     cfg.optionxform = str
     cfg.read(cfgfile)
 
-    data = {}
 
     # 1. Collect all items.
 
@@ -817,6 +840,8 @@ def produce_data(cfgfile):
     commandsfname = cfg['out_files']['commands_output']
     huffdictfname = cfg['out_files']['huffdict_output']
 
+    locationgfxname = cfg['out_files']['gfxview_output']
+
     prepare_graphics(cfg, data)
     write_palettes(cfg, data, palettefname)
     write_tilegfx(cfg, data, gfxfname)
@@ -838,6 +863,8 @@ def produce_data(cfgfile):
     write_constants(constantsfname)
 
     write_command_names(data, commandsfname)
+
+    write_graphicsview(cfg, data, locationgfxname)
 
     print("Codes:")
     print(list(CODE_ALPHA.items()))
