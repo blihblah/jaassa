@@ -1,0 +1,212 @@
+SCRIPT StartChapter2:
+    LONGTEXT ChapterIntro_LT
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT DefaultEntryScript:
+    LOCATIONTEXTEND
+
+### PART 1
+
+SCRIPT LookUpHome:
+    TEXTEND LookUpHome
+
+SCRIPT StartFlashback:
+    LONGTEXT StartFlashback
+    WAITFORFIRE
+    GOEND Bedroom
+
+SCRIPT TakeBreakfast:
+    TAKE Breakfast_inv
+    SETITEMLOC Breakfast _LOST
+    SET 2 1
+    TEXTEND TakeBreakfast
+
+SCRIPT TakePhone:
+    TAKE Phone_inv
+    SETITEMLOC Phone _LOST
+    SET 3 1
+    TEXTEND TakePhone
+    END
+
+SCRIPT TakeShower:
+    SET 4 1
+    TEXTEND TakeShower
+
+SCRIPT ExamineStopChart:
+    ISSTATE 5 0
+    IFTRUE ReadStopChart1
+    ISSTATE 5 1
+    IFTRUE ReadStopChart2
+    ISSTATE 5 2
+    IFTRUE ReadStopChart3
+    TEXT ReadStopChart4
+    WAITFORFIRE
+    GOEND Office
+
+SCRIPT ReadStopChart1:
+    SET 5 1
+    TEXTEND ReadStopChart1
+SCRIPT ReadStopChart2:
+    SET 5 2
+    TEXTEND ReadStopChart2
+SCRIPT ReadStopChart3:
+    SET 5 3
+    TEXTEND ReadStopChart3
+
+SCRIPT GoBathroom:
+    GOEND Bathroom
+SCRIPT GoBedroom:
+    GOEND Bedroom
+SCRIPT GoLivingroom:
+    GOEND Livingroom
+SCRIPT CommuteToWork:
+    # TODO
+    END
+SCRIPT EatBreakfast:
+    # TODO
+    END
+
+SCRIPT LookAtDoor:
+    # TODO
+    END
+
+SCRIPT LookBreakfast:
+    TEXTEND LookBreakfast
+SCRIPT LookMirror:
+    TEXTEND LookMirror
+SCRIPT LookPhone:
+    TEXTEND LookPhone
+SCRIPT LookShower:
+    TEXTEND LookShower
+SCRIPT LookStopChart:
+    TEXTEND LookStopChart
+
+SCRIPT PutOnWorkClothes:
+    SET 6 1
+    SETITEMLOC Clothes _LOST
+    TEXTEND PutOnWorkClothes
+
+SCRIPT ReceivePhonecall:
+    LONGTEXT ReceivePhonecall_LT
+    WAITFORFIRE
+    SET 1 0
+    SET 2 0
+    SET 3 0
+    SET 4 0
+    SET 5 0
+    SET 6 0
+    LONGTEXT EndFlashback_LT
+    WAITFORFIRE
+    GOEND OceanLanderSeat
+
+
+## PART 2
+
+# State 1 : has the base been built?
+#     0 = no
+#     1 = yes
+# State 2 : Is wire 1 OK?
+# State 3 : Is wire 2 OK?
+# State 4 : Is wire 3 OK?
+# State 5 : Is wire 4 OK?
+# State 6 : Is antenna OK?
+
+
+
+SCRIPT EnterFlatsRover:
+    GOEND Map
+SCRIPT EnterHillsideRover:
+    GOEND Map
+SCRIPT EnterShoreRover:
+    GOEND Map
+
+SCRIPT ExamineAntenna:
+    TEXTEND ExamineAntenna
+SCRIPT LookAntenna:
+    TEXTEND LookAntenna
+SCRIPT LookSocket1:
+    TEXTEND LookSocket1
+SCRIPT LookSocket2:
+    TEXTEND LookSocket2
+SCRIPT LookSocket3:
+    TEXTEND LookSocket3
+SCRIPT LookSocket4:
+    TEXTEND LookSocket4
+SCRIPT PutAntennaDown:
+    SETITEMLOC Antenna_carried _LOST
+    SETITEMLOC Antenna_installed Transmitter
+    TEXTEND PutAntennaDown
+
+SCRIPT RoverToFlats:
+    GOEND Flats
+SCRIPT RoverToHillside:
+    ISSTATE 1 2
+    IFTRUE GoHillsideBase
+    GOEND Hillside
+SCRIPT GoHillsideBase:
+    GOEND HillsideWithBase
+SCRIPT RoverToShore:
+    GOEND Shore
+SCRIPT TakeAntenna:
+    SETITEMLOC Antenna_inside _LOST
+    TAKE Antenna_carried
+    TEXTEND TakeAntenna
+
+SCRIPT UseWire1:
+    TEXT ConnectWire1
+    ISOBJECT Socket1
+    IFTRUE RightWiring1
+    SET 2 0
+    END
+
+SCRIPT UseWire2:
+    TEXT ConnectWire2
+    ISOBJECT Socket2
+    IFTRUE RightWiring2
+    SET 3 0
+    END
+SCRIPT UseWire3:
+    TEXT ConnectWire3
+    ISOBJECT Socket3
+    IFTRUE RightWiring3
+    SET 4 0
+    END
+SCRIPT UseWire4:
+    TEXT ConnectWire4
+    ISOBJECT Socket4
+    IFTRUE RightWiring4
+    SET 5 0
+    END
+
+SCRIPT RightWiring1:
+    SET 2 1
+    JUMP IsAntennaFixed
+SCRIPT RightWiring2:
+    SET 3 1
+    JUMP IsAntennaFixed
+SCRIPT RightWiring3:
+    SET 4 1
+    JUMP IsAntennaFixed
+SCRIPT RightWiring4:
+    SET 5 1
+    JUMP IsAntennaFixed
+
+SCRIPT IsAntennaFixed:
+    ISSTATE 2 0
+    IFTRUE AntennaStillBroken
+    ISSTATE 3 0
+    IFTRUE AntennaStillBroken
+    ISSTATE 4 0
+    IFTRUE AntennaStillBroken
+    ISSTATE 5 0
+    IFTRUE AntennaStillBroken
+    SET 6 1
+    SET 2 0
+    SET 3 0
+    SET 4 0
+    SET 5 0
+    TEXTEND AntennaNowFixed
+
+SCRIPT AntennaStillBroken:
+    END

@@ -38,6 +38,10 @@ HKEY: equ $FD9F
 
 KEYS: equ $FBE5
 
+;; From :
+;; https://www.msx.org/wiki/Develop_a_program_in_cartridge_ROM
+PageSize:	equ	04000h	; 16kB
+Seg_P8000_SW:	equ	07000h	; Segment switch for page 8000h-BFFFh (ASCII16k)
 
 ;; How the different memory pages are used.
 ;; Page 0, BIOS.
@@ -47,11 +51,18 @@ KEYS: equ $FBE5
 
 ;; Pages in game ROM:
 ;; 0: program code
-;; 1: scripts and items
+;; 1: scripts and item records
 ;; 2: strings
-;; 3: graphics
-;; 4: graphics
-;; 5: strings
+;; 3: strings
+;; 4: graphics + locations
+;; 5: graphics + locations
+;; 6: graphics + locations
+;; 7: graphics + locations
+
+;; Maybe actually use only "even" addresses in gfx pages to have twice as many
+;; pages for graphics + locations? i.e., the page number would use three bits.
+
+;; The page indices are actually imported constants in constants.asm_pregen?
 
 
 
@@ -71,7 +82,13 @@ start:
 	ld a, 1
 	
 	jp MainLoop
-	
+
+InitStack:
+    di ;; Necessary?
+    ld sp, $F380    ;; initialize the stack
+    ei
+    jp MainLoop
+
 	
 MainLoop:
 	call TitleScreen
@@ -1105,7 +1122,103 @@ UnrefHL:
 	    ex de, hl
 	    pop de
 	    ret
-	
+
+
+;; -----------------------------------------------------------------------------
+;; Routines to handle changing pages.
+;; Usage: call the matching Decode*RefHL routine (typically NOT DecodeRefHL
+;; directly).
+;; This will change the page. The new page name is stored in STACK, which means
+;; you have to call PopAndChangePage.
+;; -----------------------------------------------------------------------------
+
+PageMask:
+        ;; Page mask = (HL >> 12) & 3
+        ;; Then also add (PAGE_BASE_INDEX) to get the correct page.
+        ld a, h
+        rlca
+        rlca
+        and 3
+        push bc
+        ld b, a
+        ld a, (PAGE_BASE_INDEX)
+        add a, b
+        pop bc
+        ret
+
+DecodeRefHL:
+        ;; Read the HL, interpret it as a location record, read the page from
+        ;; the address.
+        ;; The two most significant bits in HL tell the type-specific page index.
+        call UnrefHL ;; HL will contain the "coded" address
+        call PageMask ;; Read the coded address from HL
+
+        ;; Now A has the "location page number" 0-3.
+        call PushAndChangePage
+        ;; Fix the address in HL
+        ld a, 63 ;; 00111111b
+        and h
+        xor 128 ;; 10000000b, set the address to correct slot.
+        ld h, a ;; Now HL points to the correct address.
+        ret
+
+
+;DecodeItemRefHL:
+;        ld a, C_PAGE_ITEM_BASE
+;        ld (PAGE_BASE_INDEX), a
+;        jp DecodeRefHL
+
+
+;DecodeScriptRefHL:
+;        ld a, C_PAGE_SCRIPT_BASE
+;        ld (PAGE_BASE_INDEX), a
+;        jp DecodeRefHL
+
+
+;DecodeLocationRefHL:
+;    ;; We might want to do this differently.
+;        ld a, C_PAGE_LOCATION_BASE
+;        ld (PAGE_BASE_INDEX), a
+;        jp DecodeRefHL
+
+
+;DecodeTextRefHL:
+;        ld a, C_PAGE_TEXT_BASE
+;        ld (PAGE_BASE_INDEX), a
+;        jp DecodeRefHL
+
+
+PushAndChangePage:
+        ;; Pushes the current page to stack, then reads from A the new page to load.
+        push af
+        ;; Is the new page other than the current? If yes, change the page.
+        push bc
+        ld b, a
+        ld a, (PAGE_TEMP)
+        cp b
+        jp z, .clear
+        ld a, b
+        ld	(Seg_P8000_SW),a
+        ld (CURRENT_PAGE), a
+    .clear:
+        pop bc
+        ret
+
+
+PopAndChangePage:
+        ;; Reads the previous page from stack.
+        pop af
+        push bc
+        ld b, a
+        ld a, (CURRENT_PAGE)
+        cp b
+        jp z, .clear
+        ;; Is the previous page other than the current? If yes, change the page.
+        ld	(Seg_P8000_SW),a
+        ld (CURRENT_PAGE), a
+    .clear:
+        pop bc
+        ret
 
 	
 DisplayTargetPrompt:
@@ -1451,25 +1564,29 @@ SPRITE_GFX:
 		
 end_permanentData:
 
-LOCATION_RECORDS:
-		INCLUDE "pregen/locations.asm_pregen"
+;; These should all fit in one 16K page.
+;; TODO: Save TILE_COLOUR_TABLE and TILE_PATTERN_TABLE in RAM
+;; TODO: Save ITEM_ADDRESS_LIST and ITEM_INIT_LOCATIONS
 
-PALETTES:
-		INCLUDE "pregen/palette.asm_pregen"
-
-GFXVIEWS:
-        INCLUDE "pregen/gfxview.asm_pregen"
-
-TEXTS:
-		INCLUDE "pregen/texts.asm_pregen"
+;; Fill in the extra space of the page.
+ds ((($-1)/$4000)+1)*$4000-$
 
 TILEGFX:
+        ;; THIS HAS TO HAVE CONSTANT ADDRESSING ACROSS PAGES!
 		INCLUDE "pregen/tilegfx.asm_pregen"
-		
+        ;; THIS HAS TO HAVE CONSTANT ADDRESSING ACROSS PAGES!
 		INCLUDE "pregen/items_rom.asm_pregen"
-	
-		INCLUDE "pregen/scripts.asm_pregen"		
 
+		INCLUDE "pregen/scripts.asm_pregen"
+
+LOCATION_RECORDS:
+		INCLUDE "pregen/locations.asm_pregen"
+PALETTES:
+		INCLUDE "pregen/palette.asm_pregen"
+GFXVIEWS:
+        INCLUDE "pregen/gfxview.asm_pregen"
+TEXTS:
+		INCLUDE "pregen/texts.asm_pregen"
 
 
 		
@@ -1554,6 +1671,9 @@ TEXT_DELAY_ACTIVE: RB 1
 
 LATEST_MAIN_STEP: RB 1
 
+CURRENT_PAGE: RB 1 ;; Which ROM page is currently displayed.
+PAGE_TEMP: RB 1 ;; Help in keeping the current page number
+PAGE_BASE_INDEX: RB 1
 C_ITEM_LIST_VISIBLE_LEN: equ 14
 
 INCLUDE "pregen/constants.asm_pregen"

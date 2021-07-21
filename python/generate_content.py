@@ -1,5 +1,6 @@
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+from itertools import combinations, product
 
 import gfxconvert
 import huffmanencoder
@@ -7,10 +8,19 @@ import produce_regular_gfx
 
 """
 TODO:
-- permit reuse of same PNG in multiple locations
 - sort gfx tiles by total frequency, then compress them
 - "stable" code for items (to avoid RAM storing, point location to starting 
   location)
+
+----
+- how to handle the multiple pages:
+- place all items and scripts on ONE PAGE now.
+- have the scripts produce ALL PAGES of one type in one file.
+- labels __TXT_{} etc. will be as before, but the references will be
+  __refTXT_{} and defined with EQU ... somehow.
+- locations and gfx will be on same pages.
+- add "static" toggle to objects that cannot move. Their "RAM" location should
+  be in ROM area.
 
 """
 
@@ -33,7 +43,18 @@ LABELTEMPLATE_LOCATION = "__LOCATION_{}"
 LABELTEMPLATE_SCRIPT = "__S_{}"
 LABELTEMPLATE_PALETTE = "__PALETTE_{}"
 LABELTEMPLATE_ITEM_RAM = "__ITEMRAM_{}"
-LABELTEMPLATE_GRAPHICSVIEW = "___GFXVIEW_{}"
+LABELTEMPLATE_GRAPHICSVIEW = "__GFXVIEW_{}"
+
+REFTEMPLATE_TEXT = "__refTXT_{}"
+REFTEMPLATE_ITEM = "__refITEM_{}"
+REFTEMPLATE_LOCATION = "__refLOCATION_{}"
+REFTEMPLATE_SCRIPT = "__refS_{}"
+REFTEMPLATE_PALETTE = "__refPALETTE_{}"
+REFTEMPLATE_ITEM_RAM = "__refITEMRAM_{}"
+REFTEMPLATE_GRAPHICSVIEW = "__refGFXVIEW_{}"
+
+REFEQU_TEMPLATE = "{}: equ (({} << 14) + ({} AND $3FFF))\n"
+
 CFG_SCRIPT_HEAD = "script_"
 CFG_ITEM_HEAD = "item_"
 CFG_LOCATION_HEAD = "location_"
@@ -47,6 +68,8 @@ CONSTANT_MAP = {
     TC_LOST_LOC: "$0000",
     TC_INVENTORY_LOC: "$0002"
 }
+
+PAGE_MAX_SIZE = 2 ** 14 - 22
 
 COMMAND_MAP = {
     "END": 0,
@@ -64,7 +87,10 @@ COMMAND_MAP = {
     "TAKEEND": 12,
     "ISOBJECT": 13,
     "LOCATIONTEXTEND": 14,
-    "WAITFORFIRE": 15
+    "WAITFORFIRE": 15,
+    "JUMP": 16,
+    "ISSTATELEQ": 17,
+    "TO_MAIN_MENU": 18
 }
 
 # TODO: Consider making these easier to change.
@@ -96,6 +122,15 @@ PLAYER_COMMANDS = {
     "buy": 9,
     "eat": 10,
     "ponder": 11,
+    "wear": 12,
+    "remove": 13,
+    "choose": 14,
+    "pull": 15,
+    "connect": 16,
+    "unscrew": 17,
+    "open": 18,
+    "close": 19,
+    "get on": 20
 
 }
 
@@ -128,12 +163,13 @@ def wordwrap_text(s):
     return "".join(res)
 
 
-def encode_text(s):
+def encode_text(s, is_prewrapped=False):
     """
     Convert a string to a sequence of characters
     to pack.
     """
-    s = wordwrap_text(s)
+    if not is_prewrapped:
+        s = wordwrap_text(s)
     res = []
     for c in s:
         if c == "\\":
@@ -191,13 +227,32 @@ def write_texts(cfg, data, fname):
     Writes the items under [text] section.
     """
     d = cfg['text']
+
+    text_page = 0
+
     with open(fname, 'w') as f:
         f.write(";; Strings compressed \n")
-        for k, v_orig in d.items():
-            v = encode_text(v_orig)
-            f.write("{}: ;;\n".format(LABELTEMPLATE_TEXT.format(k)))
-            write_compressed_string(data, f, v, v_orig)
+        #f.write("org	8000h,BFFFh\n")
 
+        coded_length = 0
+
+        for k, v_orig in d.items():
+            v = encode_text(v_orig, is_prewrapped=(k in data['prewrapped_texts']))
+            coded_length += len(v)
+            if coded_length > 2**14 - 2:
+                f.write("DS PageSize - ($ - 8000h),255")
+                coded_length = len(v)
+                f.write("org	8000h,BFFFh\n")
+                text_page += 1
+
+            f.write("{}: ;;\n".format(LABELTEMPLATE_TEXT.format(k)))
+            # TODO: Write the reference name as well!
+            write_compressed_string(data, f, v, v_orig)
+            f.write(REFEQU_TEMPLATE.format(
+                REFTEMPLATE_TEXT.format(k),
+                text_page, LABELTEMPLATE_TEXT.format(k)))
+        #f.write("DS PageSize - ($ - 8000h),255")
+    data['page'] += text_page + 1
 
 def generate_huffdict(cfg, data, out_fname):
     """
@@ -228,12 +283,46 @@ def extract_displayed_strings(cfg, data):
 
     return res
 
+def longtext(cfg, data, s_name, text):
+    """
+    Split a long text paragraph into distinct pieces.
+    Return the distinct strings.
+    """
+    if text is None:
+        # Was missing from input.
+        data['used_strings'].add(s_name)
+        return [s_name]
+    text = wordwrap_text(text)
+    LINES = 5
+    entries = []
+    SUB_LEN = LINES * LINE_LENGTH
+    print("Original text:")
+    print(text)
+    while len(text) > SUB_LEN:
+        entries.append(text[:SUB_LEN].strip())
+        text = text[SUB_LEN:]
+    if len(text) > 0:
+        entries.append(text.strip())
 
-def parse_scriptfile(data, infilename):
+    print("\n".join(entries) + "#")
+
+    n_names = []
+    for i, v in enumerate(entries):
+        n_name = f"{s_name}_PT{i}"
+        data['used_strings'].add(n_name)
+        n_names.append(n_name)
+        cfg['text'][n_name] = v
+        data['prewrapped_texts'].add(n_name)
+    del cfg['text'][s_name]
+    return n_names
+
+
+
+def parse_scriptfile(cfg, data, infilename):
     scripts = {}
     current_script = None
     valid_ends = [COMMAND_MAP[s] for s in ("END", "GOEND", "TEXTEND", "TAKEEND",
-                                           "LOCATIONTEXTEND")]
+                                           "LOCATIONTEXTEND", "JUMP")]
     with open(infilename, 'r') as f:
         for line in f:
             line = line.strip()
@@ -251,25 +340,32 @@ def parse_scriptfile(data, infilename):
                 current_script.append((cmdval,))
             elif cmd == "GOTO":
                 current_script.append((cmdval, parts[1]))
+                data['used_locations'].add(parts[1])
             elif cmd == "SETITEMLOC":
                 current_script.append((cmdval, parts[1], parts[2]))
+                data['used_locations'].add(parts[2])
             elif cmd == "TEXT":
                 current_script.append((cmdval, parts[1]))
+                data['used_strings'].add(parts[1])
             elif cmd == "IFTRUE":
                 # parts[1] should be a script name
                 current_script.append((cmdval, parts[1]))
+                data['used_scripts'].add(parts[1])
             elif cmd == "SET":
                 current_script.append((cmdval, parts[1], parts[2]))
             elif cmd == "ISLOC":
                 current_script.append((cmdval, parts[1]))
+                data['used_locations'].add(parts[1])
             elif cmd == "ISSTATE":
                 current_script.append((cmdval, parts[1], parts[2]))
             elif cmd == "SETTILE":
                 current_script.append((cmdval, parts[1], parts[2], parts[3]))
             elif cmd == "GOEND":
                 current_script.append((cmdval, parts[1]))
+                data['used_locations'].add(parts[1])
             elif cmd == "TEXTEND":
                 current_script.append((cmdval, parts[1]))
+                data['used_strings'].add(parts[1])
             elif cmd == "TAKE":
                 current_script.append((cmdval, parts[1]))
             elif cmd == "TAKEEND":
@@ -280,6 +376,20 @@ def parse_scriptfile(data, infilename):
                 current_script.append((cmdval,))
             elif cmd == "WAITFORFIRE":
                 current_script.append((cmdval,))
+            elif cmd == "JUMP":
+                current_script.append((cmdval, parts[1]))
+            elif cmd == "ISSTATELEQ":
+                current_script.append((cmdval, parts[1], parts[2]))
+            elif cmd == "TO_MAIN_MENU":
+                current_script.append((cmdval,))
+            elif cmd == "LONGTEXT":
+                txtcmd = COMMAND_MAP["TEXT"]
+                waitcmd = COMMAND_MAP["WAITFORFIRE"]
+                entries = longtext(cfg, data, parts[1], cfg['text'].get(parts[1], None))
+                for entry in entries:
+                    current_script.append((txtcmd, entry))
+                    if entry is not entries[-1]:
+                        current_script.append((waitcmd,))
             elif cmd.startswith("SCRIPT"):
                 if current_script is not None:
                     if current_script[-1][0] not in valid_ends:
@@ -358,10 +468,19 @@ def read_input(cfg):
         'graphics': {
             'defined_chars': {}
         },
-        'used_texts': set([]),
+        'used_strings': set([]),
+        'used_locations': set([]),
         'used_scripts': set([]),
+        'prewrapped_texts': set([]),
         'scripts': {},
-        'gfxviews': {}
+        'gfxviews': {},
+        'gfxsources': {},
+        'errors': {
+            'strings': [],
+            'scripts': [],
+            'gfx': [],
+            'locations': []
+        }
     }
     print("Reading input")
     for s in cfg.sections():
@@ -370,7 +489,7 @@ def read_input(cfg):
             parse_location(data_collection, cfg, s)
         elif s.startswith(CFG_ITEM_HEAD):
             parse_item(data_collection, cfg, s)
-    parse_scriptfile(data_collection, cfg['in_files']['scripts'])
+    parse_scriptfile(cfg, data_collection, cfg['in_files']['scripts'])
     return data_collection
 
 
@@ -410,17 +529,31 @@ def intlist_to_string(s):
 
 
 def parse_location(data, cfg, loc_key):
-    # cfg = ConfigParser()
     loc_name = loc_key[len(CFG_LOCATION_HEAD):]
     gfx_file = cfg.get(loc_key, 'gfx')
     defined_chars = data['graphics']['defined_chars']
+    if not os.path.exists(gfx_file):
+        data['errors']['gfx'].append(gfx_file)
+        return
+
+    if gfx_file not in data['gfxsources']:
+        data['gfxsources'][gfx_file] = {
+            'palette': loc_name,
+            'gfxdata': loc_name,
+            'loc_name': loc_name
+        }
+
     defined_chars, tiles = gfxconvert.create_charset(gfx_file, defined_chars)
     print("Created tiles.")
-    loc = {'scripts': {}}
+    loc = {'scripts': {},
+           'palette': data['gfxsources'][gfx_file]['palette'],
+           'gfxdata': data['gfxsources'][gfx_file]['gfxdata']}
     data['locations'][loc_name] = loc
-    loc['gfx'] = tiles
+    #loc['gfx'] = tiles
+    if 'gfx' not in data['gfxsources'][gfx_file]:
+        data['gfxsources'][gfx_file]['gfx'] = tiles
     text_key = cfg.get(loc_key, 'description')
-    data['used_texts'].add(text_key)
+    data['used_strings'].add(text_key)
     loc['description'] = text_key
     for k in cfg[loc_key]:
         if k.startswith(CFG_SCRIPT_HEAD):
@@ -447,21 +580,28 @@ def prepare_graphics(cfg, data):
     Prepare the graphics tiles to a binary.
     """
     # TODO: Optimize and create multiple "palettes"!
-    for loc_name in data['locations']:
+    #for loc_name in data['locations']:
+    for gfxfile, loc_d in data['gfxsources'].items():
+
         # Create a list of all tiles we're using in this feature.
         # Then create a palette.
-        used_orig_tiles = data['locations'][loc_name]['gfx']
+        #used_orig_tiles = data['locations'][loc_name]['gfx']
+        used_orig_tiles = loc_d['gfx']
 
         locgfx = LocationGraphics()
         locgfx.original_tiles = used_orig_tiles
-        data['locations'][loc_name]['locgfx'] = locgfx
+        #data['locations'][loc_name]['locgfx'] = locgfx
+        loc_d['locgfx'] = locgfx
+        loc_name = loc_d['loc_name']
         data['gfxviews'][loc_name] = locgfx
 
 
 def write_palettes(cfg, data, fname):
     with open(fname, 'w') as f:
         f.write(";; Palettes for locations.\n")
-        for loc_name, loc_d in data['locations'].items():
+        #for loc_name, loc_d in data['locations'].items():
+        for loc_file, loc_d in data['gfxsources'].items():
+            loc_name = loc_d['loc_name']
             locgfx = loc_d['locgfx']
             ctvd, palette = locgfx.convert()
             f.write("{}:\nDB ".format(as_palettelabel(loc_name)))
@@ -471,6 +611,10 @@ def write_palettes(cfg, data, fname):
 
 
 def write_graphicsview(cfg, data, fname):
+    """
+    TODO: Split the locations, palettes, graphics and colours into separate
+    pages BEFORE calling this!
+    """
     with open(fname, 'w') as f:
         f.write(";; Graphics views\n")
         for gfx_name, gfx_d in data['gfxviews'].items():
@@ -483,6 +627,29 @@ def write_graphicsview(cfg, data, fname):
                         f.write(", ")
                     f.write("{}".format(ctvd[(x, y)]))
                 f.write("\n")
+
+def split_locations_to_pages(cfg, data):
+    """
+    Split all locations to separate pages.
+    :param cfg:
+    :param data:
+    :return:
+    """
+
+
+    # 1. Find the amount of overlap between location gfx.
+    # 2. Start combining locations while keeping everything under
+    #    constraints: colour tables, size
+
+    # Similarity: shared tiles, compatible colours
+
+    similarities = dict()
+
+    for k1, k2 in combinations(data['locations'].keys(), 2):
+        pass
+
+
+
 
 
 class Palette(object):
@@ -601,12 +768,13 @@ def write_locations(data, outfn):
             # Which tile dictionary to use (2 bytes)
             # TODO: move this to the graphics data as well?
             f.write("DW {} ;; Start of tile dictionary location\n".format(
-                as_palettelabel(loc)
+                as_palettelabel(d['palette'])
             ))
             f.write("DW {} ;; Reference to graphics data\n".format(
-                as_graphicsviewlabel(loc)))
+                as_graphicsviewlabel(d['gfxdata'])))
 
-            dir_c = len(d['scripts'])
+            #dir_c = len(d['scripts'])
+            dir_c = sum(len(d['scripts'][k]) for k in d['scripts'])
             f.write("DB {}  ; Number of direction script entries here\n"
                     .format(dir_c))
             for dir_id in sorted(d['scripts'].keys()):
@@ -617,9 +785,11 @@ def write_locations(data, outfn):
                                     PLAYER_COMMANDS[cmd]))
                     f.write("DW {} ; Location of invoked script\n"
                             .format(as_scriptlabel(lbl)))
+                    data['used_scripts'].add(lbl)
             if "entrancescript" in d:
                 f.write("DW {} ; Location of script executed when entering.\n"
                         .format(as_scriptlabel(d['entrancescript'])))
+                data['used_scripts'].add(d['entrancescript'])
             else:
                 f.write("DB $ff, $ff; No entry script.\n")
 
@@ -629,6 +799,8 @@ def parse_item(data, cfg, item_key):
     item_name = item_key[len(CFG_ITEM_HEAD):]
 
     item_d['location'] = cfg.get(item_key, 'location')
+    data['used_locations'].add(item_d['location'])
+
     item_sh = cfg[item_key]['name']
     item_d['name'] = item_sh  # item_name
     # item_d['shorthand'] = item_sh
@@ -638,6 +810,9 @@ def parse_item(data, cfg, item_key):
             cmd = k[len(CFG_SCRIPT_HEAD):]
             cmd = PLAYER_COMMANDS[cmd.lower()]
             item_d['scripts'][cmd] = v
+
+    # Flags
+    item_d['static'] = cfg.has_option(item_key, 'static')
     data['items'][item_name] = item_d
 
 
@@ -686,6 +861,9 @@ def write_item(cfg, data, outfname, outramfname):
             for cmd, scr in item_d['scripts'].items():
                 f.write("    DB {} \n".format(cmd))
                 f.write("    DW {} \n".format(as_scriptlabel(scr)))
+                data['used_scripts'].add(scr)
+
+            data['used_strings'].add(item_d['name'])
 
     with open(outramfname, 'w') as f:
         f.write(";;; Item RAM data.\n")
@@ -741,8 +919,135 @@ def merge_colour_codes(all_colours):
             break
 
     print("Reduced used colour maps by", reduced, "/", len(all_colours))
+    print("Colours altogether:", len(set(remap.values())))
     return remap
 
+
+def merge_colour_codes_alt(all_colours):
+    remap = dict((k, k) for k in all_colours)
+
+    found = True
+    print("Reducing used colour codes...")
+
+    while found:
+        found = False
+        # 1. Find all pairwise compatibles.
+        # 2. Find ones with most shared
+
+        compatible = defaultdict(list)
+        for nclr1, nclr2 in product(set(remap.values()), repeat=2):
+            if nclr1 == nclr2:
+                continue
+            compt, ccode = are_colours_compatible(nclr1, nclr2)
+            if compt:
+                compatible[nclr1].append(nclr2)
+        options = list((len(v), k, v) for k, v in compatible.items())
+        options.sort(reverse=True)
+        #print("Compatibilities:", options)
+
+        if len(options):
+            found = True
+            nbs, clr0, choice = options[0]
+            #print("Chosen option:", options[0])
+            best = None
+            for r in range(1, nbs):
+                print("R:", r)
+                failure = None
+                for i, c in enumerate(combinations(choice, r)):
+                    ok = True
+                    #print("Looking at combination", clr1)
+                    clr1 = clr0
+                    if failure is not None:
+                        if failure == c[:len(failure)]:
+                            #print("Early break", len(failure))
+                            #assert 1 == 0
+                            continue
+                        else:
+                            print(
+                                f"  comb. {i} , size {r}, failure {clr0} {failure}")
+                            failure = None
+
+                    for i, clr2 in enumerate(c):
+                        compt, ccode = are_colours_compatible(clr1, clr2)
+                        if not compt:
+                            ok = False
+                            failure = c[:(i + 1)]
+                            break
+                        clr1 = ccode
+                    if ok:
+                        best = c
+                        print("Best so far:", best)
+                        break
+                if not ok:
+                    break
+
+            if best is not None:
+                print(f"    Merging {len(best)} out of {len(choice)}")
+                for clr in best:
+                    remap[clr] = ccode
+            else:
+                break
+
+    print("Colour schemes used", len(set(remap.values())), ", originally", len(all_colours))
+    return remap
+
+
+
+def merge_colour_codes_alt2(all_colours):
+    remap = dict((k, k) for k in all_colours)
+
+    found = True
+    print("Reducing used colour codes...")
+
+    while found:
+        found = False
+        # 1. Find all pairwise compatibles.
+        # 2. Find ones with most shared
+
+        compatible = defaultdict(list)
+        for nclr1, nclr2 in product(set(remap.values()), repeat=2):
+            if nclr1 == nclr2:
+                continue
+            compt, ccode = are_colours_compatible(nclr1, nclr2)
+            if compt:
+                compatible[nclr1].append(nclr2)
+        options = list((len(v), k, v) for k, v in compatible.items())
+        options.sort(reverse=True)
+        #print("Compatibilities:", options)
+        if len(options):
+            found = True
+            nbs, clr0, choice = options[0]
+
+            compatibles = [
+                ([clr0], clr0)
+            ]
+            for i, clr1 in enumerate(choice):
+                #print(i, len(choice), len(compatibles))
+                updated = set([])
+                to_add = []
+                for others, clr2 in compatibles:
+                    compt, ccode = are_colours_compatible(clr1, clr2)
+                    if compt:
+                        to_add.append(
+                            (others + [clr1], ccode)
+                        )
+                compatibles.extend(to_add)
+                MAX_EVALS = 10000
+                if len(compatibles) > MAX_EVALS:
+                    opts = [(len(k), k, v) for k, v in compatibles]
+                    opts.sort(reverse=True)
+                    compatibles = [(k[1], k[2]) for k in opts[:MAX_EVALS]]
+
+            opts = [(len(k), v, k) for k, v in compatibles]
+            opts.sort(reverse=True)
+            best = opts[0][2]
+            ccode = opts[0][1]
+            print(f"    Merging {len(best)} out of {len(choice) + 1}")
+            for clr in best:
+                remap[clr] = ccode
+
+    print("Colour schemes used", len(set(remap.values())), ", originally", len(all_colours))
+    return remap
 
 def are_colours_compatible(colcode1, colcode2):
     ccodes = []
@@ -779,7 +1084,8 @@ def write_tilegfx(cfg, data, fname):
             _, clrs = gfxconvert.split_char(c)
             all_colours.add(clrs)
 
-        colour_remap = merge_colour_codes(all_colours)
+        #colour_remap = merge_colour_codes(all_colours)
+        colour_remap = merge_colour_codes_alt2(all_colours)
 
         f.write("TILE_COLOUR_TABLE:\n"
                 ";; 8 bytes for each distinct colour character.\n")
@@ -828,6 +1134,8 @@ def produce_data(cfgfile):
 
     data = read_input(cfg)
 
+    data['page'] = 0
+
     # 2. Convert the graphics.
 
     palettefname = cfg['out_files']['palette_output']
@@ -874,6 +1182,31 @@ def produce_data(cfgfile):
     print("Codes:")
     print(list(CODE_ALPHA.items()))
 
+    if data['errors']['gfx']:
+        print("ERROR! Missing graphics files:")
+        print("\n".join(data['errors']['gfx']))
+    for k in data['used_strings']:
+        if k not in cfg['text']:
+            data['errors']['strings'].append(k)
+    for k in data['used_scripts']:
+        if k not in data['scripts']:
+            data['errors']['scripts'].append(k)
+    for k in data['used_locations']:
+        if k not in data['locations']:
+            data['errors']['locations'].append(k)
+    if data['errors']['strings']:
+        print("ERROR! Missing text entries")
+        for missing in sorted(data['errors']['strings']):
+            print(f"{missing}=TODO {missing.replace('_', ' ')}")
+    if data['errors']['scripts']:
+        print("ERROR! Missing scripts")
+        for missing in sorted(data['errors']['scripts']):
+            print(f"SCRIPT {missing}:\n    END")
+        #print("\n".join(data['errors']['scripts']))
+    if data['errors']['locations']:
+        print("ERROR! Missing locations")
+        print("\n".join(data['errors']['locations']))
+
 
 def produce_gfx(cfgfile):
     cfg = ConfigParser()
@@ -897,7 +1230,10 @@ def produce_gfx(cfgfile):
 if __name__ == "__main__":
     # produce_data(os.path.join("content", "samplecontent.cfg"))
 
-    cfgname = os.path.join("..", "resources", "penguingamecontent.cfg")
+    cfgname = os.path.join("..", "resources", "terraforminggamecontent.cfg")
+    #cfgname = os.path.join("..", "resources", "terraforminggamecontent_chapter2.cfg")
+
+    #cfgname = os.path.join("..", "resources", "penguingamecontent.cfg")
 
     produce_gfx(cfgname)
 

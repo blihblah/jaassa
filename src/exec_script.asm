@@ -40,6 +40,12 @@ ExecuteScriptHL:
 		jp z, .cmdDisplayLocationDescEnd
 		dec a
 		jp z, .cmdWaitForFire
+		dec a
+		jp z, .cmdJump
+		dec a
+		jp z, .cmdIsStateLEQ
+		dec a
+		jp z, .cmdFinishGame
 		;; TODO: Add "CALL <routine handle>"
 		;; TODO: Add "IsItemLoc <item> <location>"
 		;; TODO: Implement SetTile
@@ -213,7 +219,31 @@ ExecuteScriptHL:
 		call WaitForFireButton
 		pop hl
 		jp .nextCommand
-		
+
+	.cmdJump:
+		call UnrefHL
+		jp .nextCommand
+
+	.cmdIsStateLEQ:
+		xor a
+		ld (GAME_STATE), a
+		push hl
+		ld e, (hl)
+		inc hl
+		ld b, (hl)
+		ld d, 0
+		ld hl, GAME_STATE
+		add hl, de
+		ld a, (hl)
+		cp b
+		jp nc, .popPassTwo
+		ld a, 1
+		ld (GAME_STATE), a
+		jp .popPassTwo
+
+	.cmdFinishGame:
+	    jp InitStack
+
 	.popPassTwo:
 		;; Typical ending for the script: pop the code execution pointer
 		;; back to HL and increment it by 2 bytes

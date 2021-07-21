@@ -1,0 +1,560 @@
+######
+# STATE VARIABLES:
+# 1 -- player's task list
+#      0 = go to mess hall
+#      1 = fix air leak in the probe bay
+#      2 = analyse planet scan results
+#      3 = prepare and launch dispersal probes
+#      4 = meeting at mess hall
+#      5 = prepare lander and supplies for planetfall
+# 2 -- probe bay pressurized
+#      0 = No
+#      1 = Ready for repressurisation
+#      2 = Yes
+# 3 -- analysis
+#      0 = results not read
+#      1 = results read
+# 4 -- quiz answers right
+#      0 = something was wrong
+#      1 = first question right
+#      2 = second question right
+#      3 = third question right
+#      4 = all questions right
+# 5 -- probe loading steps
+#      0 = probe not opened
+#      1 = step 1 done
+#      2 = step 2 done
+#      3 = probe opened
+#      4 = biodispersal packs opened
+#      5 = packs loaded
+#      6 = closing step 1 done
+#      7 = closing step 2 done
+#      8 = closing step 3 done
+#      9 = probe moved for launch
+# 6 -- is the spacesuit worn?
+
+SCRIPT StartGame:
+    ISSTATE 15 1
+    IFTRUE DefaultEntryScript
+    SET 15 1
+    LONGTEXT Intro
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT DefaultEntryScript:
+    LOCATIONTEXTEND
+
+SCRIPT GoProbeBay:
+    ISSTATE 2 2
+    IFTRUE EnterProbeBay
+    TEXTEND CannotEnterProbeBay
+
+SCRIPT EnterProbeBay:
+    GOEND ProbeBay
+
+SCRIPT GoStorageBay:
+    GOEND StorageBay
+
+SCRIPT GoMesshall:
+    GOEND Messhall
+
+SCRIPT GoAirlock:
+    GOEND Airlock
+
+SCRIPT EntranceMesshall:
+    ISSTATE 1 0
+    IFTRUE EntranceMesshall_0
+    ISSTATE 1 4
+    IFTRUE EntranceMesshall_Probelaunch
+    LOCATIONTEXTEND
+
+SCRIPT EntranceMesshall_Probelaunch:
+    LONGTEXT EntranceMesshall_Probelaunch
+    SET 1 5
+    LONGTEXT Landing_1
+    WAITFORFIRE
+    LONGTEXT Landing_2
+    WAITFORFIRE
+    LONGTEXT Landing_3
+    WAITFORFIRE
+    LONGTEXT Landing_4
+    WAITFORFIRE
+    LONGTEXT Landing_LAST
+    WAITFORFIRE
+
+    TO_MAIN_MENU
+    END
+
+SCRIPT EntranceMesshall_0:
+    LONGTEXT Meeting
+    SET 1 1
+    END
+
+SCRIPT GoScienceBay:
+    GOEND ScienceBay
+
+SCRIPT GoHallway:
+    GOEND Hallway
+
+SCRIPT GoHallwayFromAirlock:
+    ISSTATE 6 1
+    IFTRUE NoIndoorsSpacesuit
+    GOEND Hallway
+
+SCRIPT NoIndoorsSpacesuit:
+    TEXTEND NoIndoorsSpacesuit
+
+SCRIPT GoCryobay:
+    GOEND CryoBay
+
+SCRIPT GoUpCryobay:
+    TAKE Commpad
+    TEXT TakeCommpad
+    WAITFORFIRE
+    GOEND CryoBay
+
+SCRIPT EntranceProbeBay:
+    LOCATIONTEXTEND
+
+
+#####
+# Player's displayed task list
+
+SCRIPT LookCommpad:
+    TEXTEND LookCommpad
+
+SCRIPT ReadTask:
+    ISSTATE 1 0
+    IFTRUE ReadTask_0
+    ISSTATE 1 1
+    IFTRUE ReadTask_1
+    ISSTATE 1 2
+    IFTRUE ReadTask_2
+    ISSTATE 1 3
+    IFTRUE ReadTask_3
+    ISSTATE 1 4
+    IFTRUE ReadTask_4
+    END
+
+SCRIPT ReadTask_0:
+    TEXTEND LookAtComputerDisplay_Step0
+
+SCRIPT ReadTask_1:
+    TEXTEND LookAtComputerDisplay_Step1
+
+SCRIPT ReadTask_2:
+    TEXTEND LookAtComputerDisplay_Step2
+
+SCRIPT ReadTask_3:
+    TEXTEND LookAtComputerDisplay_Step3
+
+SCRIPT ReadTask_4:
+    TEXTEND LookAtComputerDisplay_Step4
+
+
+#####
+# QUEST 1: Fix the probebay.
+
+# Spacesuit scripts.
+SCRIPT WearSpacesuit:
+    SETITEMLOC Spacesuit_wall _LOST
+    TAKE Spacesuit_worn
+    SET 6 1
+    TEXTEND WearSpacesuit
+SCRIPT RemoveSpacesuit:
+    ISLOC Airlock
+    IFTRUE RemoveSpacesuit_OK
+    TEXTEND RemoveSpacesuit_BadIdea
+
+SCRIPT RemoveSpacesuit_OK:
+    SETITEMLOC Spacesuit_worn _LOST
+    SETITEMLOC Spacesuit_wall Airlock
+    SET 6 0
+    TEXTEND RemovedSpacesuit
+
+# Sealant scripts
+SCRIPT UseSealantOn:
+    ISOBJECT HullBreach
+    IFTRUE FixBreach
+    TEXTEND BadUseOnObject
+
+SCRIPT LookBreach:
+    TEXTEND BreachUnfixed
+
+SCRIPT FixBreach:
+    SETITEMLOC HullBreach _LOST
+    SETITEMLOC Sealant _LOST
+    SET 2 1
+    TEXTEND SealingBreach
+
+# Repressurisation lever
+SCRIPT LookRepressurisationLever:
+    TEXTEND LookRepressurisationLever
+
+
+SCRIPT PullRepressurisationLever:
+    ISSTATE 2 0
+    IFTRUE CannotRepressuriseProbeBay
+    ISSTATE 2 1
+    IFTRUE RepressuriseProbeBay
+    TEXTEND ProbeBayAlreadyPressurised
+
+SCRIPT CannotRepressuriseProbeBay:
+    TEXTEND CannotRepressuriseProbeBay
+
+SCRIPT RepressuriseProbeBay:
+    SET 2 2
+    TEXTEND RepressuriseProbeBay
+
+#####
+# QUEST 2: Analyse scans
+# Read analysis scans on display,
+# then read up on alternatives. Player has to calculate the correct answer.
+#
+
+SCRIPT ReadScienceLabComputer:
+    ISSTATE 2 2
+    IFTRUE OpenScienceComputer
+    TEXTEND AutomatedAnalysisNotRunning
+
+SCRIPT OpenScienceComputer:
+    TEXT OpenScienceComputer
+    WAITFORFIRE
+    GOEND ComputerMain
+
+SCRIPT DisplayAnalysisResults:
+    LONGTEXT ScanAnalysisResults
+    SET 3 1
+    END
+
+SCRIPT AnalysisAlreadyDone:
+    TEXTEND AnalysisAlreadyDone
+
+SCRIPT PromptToReadAnalysisFirst:
+    TEXTEND PromptToReadAnalysisFirst
+
+
+SCRIPT ReadOnEarthWater:
+    LONGTEXT EarthWater
+    END
+SCRIPT ReadOnEarthAtmosphere:
+    LONGTEXT EarthAtmosphere
+    END
+SCRIPT ReadOnEarthClimate:
+    LONGTEXT EarthClimate
+    END
+SCRIPT ReadOnEarthSoil:
+    LONGTEXT EarthSoil
+    END
+
+SCRIPT ChooseStartQuiz:
+    ISSTATE 3 0
+    IFTRUE PromptToReadAnalysisFirst
+    ISSTATE 4 4
+    IFTRUE AnalysisAlreadyDone
+    SET 4 0
+    GOEND QuizWater
+
+SCRIPT AnalysisNotRight:
+    SET 4 0
+    TEXT AnalysisWentWrong
+    WAITFORFIRE
+    GOEND ComputerMain
+
+SCRIPT CorrectWaterAnswer:
+    SET 4 1
+    TEXT CorrectWaterAnswer
+    WAITFORFIRE
+    GOEND QuizAtmosphere
+
+SCRIPT CorrectAtmosphereAnswer:
+    TEXT CorrectAtmosphereAnswer
+    WAITFORFIRE
+    ISSTATE 4 1
+    IFTRUE AllRightAtmosphere
+    SET 4 0
+    GOEND QuizClimate
+
+SCRIPT AllRightAtmosphere:
+    SET 4 2
+    GOEND QuizClimate
+
+SCRIPT CorrectClimateAnswer:
+    TEXT CorrectClimateAnswer
+    WAITFORFIRE
+    ISSTATE 4 2
+    IFTRUE AllRightClimate
+    SET 4 0
+    GOEND QuizSoil
+
+SCRIPT AllRightClimate:
+    SET 4 3
+    GOEND QuizSoil
+
+
+SCRIPT CorrectSoilAnswer:
+    TEXT CorrectSoilAnswer
+    WAITFORFIRE
+    ISSTATE 4 3
+    IFTRUE AnalysisCompleted
+    ISSTATE 4 0
+    IFTRUE AnalysisNotRight
+    END
+
+SCRIPT AnalysisCompleted:
+    SET 4 4
+    SET 1 3
+    LONGTEXT OwnAnalysisResults
+    WAITFORFIRE
+    GOEND ScienceBay
+
+
+SCRIPT WrongWaterAnswer:
+    SET 4 0
+    TEXT WrongWaterAnswer
+    WAITFORFIRE
+    GOEND QuizAtmosphere
+
+
+SCRIPT WrongAtmosphereAnswer:
+    SET 4 0
+    TEXT WrongAtmosphereAnswer
+    WAITFORFIRE
+    GOEND QuizClimate
+
+SCRIPT WrongClimateAnswer:
+    SET 4 0
+    TEXT WrongClimateAnswer
+    WAITFORFIRE
+    GOEND QuizSoil
+
+SCRIPT WrongSoilAnswer:
+    SET 4 0
+    TEXT WrongSoilAnswer
+    WAITFORFIRE
+    JUMP AnalysisNotRight
+
+
+SCRIPT LookOutsideAirlock:
+    TEXTEND LookOutsideAirlock
+
+SCRIPT LookAirlockOutside:
+    TEXTEND LookAirlockOutside
+
+SCRIPT LookComputer:
+    TEXTEND LookComputer
+
+SCRIPT TakeSealant:
+    TAKE Sealant
+    SETITEMLOC Sealant_shelf _LOST
+    TEXTEND TakeSealant
+
+SCRIPT GoComputerMain:
+    TEXT OpenComputer
+    WAITFORFIRE
+    GOEND ComputerMain
+
+SCRIPT GoOutsideProbeBay:
+    TEXT GoOutsideProbeBay
+    WAITFORFIRE
+    GOEND OutsideProbeBay
+
+SCRIPT GoOutsideAirlockFromInside:
+    ISSTATE 6 1
+    IFTRUE GoThroughAirlockOutside
+    TEXT OutsideWithoutSpacesuitBadIdea
+    END
+
+SCRIPT GoThroughAirlockOutside:
+    TEXT GoOutsideAirlock
+    WAITFORFIRE
+    GOEND OutsideAirlock
+
+SCRIPT GoOutsideAirlock:
+    GOEND OutsideAirlock
+
+SCRIPT LookOutsideProbeBay:
+    TEXTEND LookOutsideProbeBay
+
+SCRIPT GoComputerLibrary:
+    GOEND ComputerLibrary
+
+
+
+#####
+# QUEST 3: Prepare distribution
+# Need to ask for help (a sidequest!)
+
+# 1. Open the three probes.
+# 2. Fill the small parts.
+
+SCRIPT ReadProbeOpeningSteps:
+    LONGTEXT ProbeOpeningGuide
+    END
+
+SCRIPT OpenProbe_Step1:
+    ISSTATE 5 0
+    IFTRUE CanOpenProbe_Step1
+    ISSTATE 5 8
+    IFTRUE CannotReopen_Probe
+    TEXTEND FailedOpen_Step1
+
+SCRIPT CannotReopen_Probe:
+    TEXTEND CannotReopen_Probe
+
+SCRIPT OpenProbe_Step2:
+    ISSTATE 5 1
+    IFTRUE CanOpenProbe_Step2
+    TEXTEND FailedOpen_Step2
+
+SCRIPT OpenProbe_Step3:
+    ISSTATE 5 2
+    IFTRUE CanOpenProbe_Step3
+    TEXTEND FailedOpen_Step3
+
+SCRIPT CanOpenProbe_Step1:
+    SET 5 1
+    SETITEMLOC ProbeWires_Attached Probe
+    SETITEMLOC ProbeScrew_Closed Probe
+    TEXTEND OpenedProbe_Step1
+SCRIPT CanOpenProbe_Step2:
+    SET 5 2
+    SETITEMLOC ProbeWires_Attached _LOST
+    SETITEMLOC ProbeWires_Detached Probe
+    TEXTEND OpenedProbe_Step2
+SCRIPT CanOpenProbe_Step3:
+    SET 5 3
+    SETITEMLOC ProbeScrew_Closed _LOST
+    TAKE ProbeScrew_Inventory
+
+    TEXTEND OpenedProbe_Step3
+
+# 2. Fill the small sections.
+SCRIPT OpenDispersalPacks:
+    ISSTATE 5 3
+    IFTRUE OpenDispersalPacks_OK
+    ISSTATELEQ 5 3
+    IFTRUE OpenDispersalPacks_TooEarly
+    TEXTEND OpenDispersalPacks_AlreadyDone
+
+SCRIPT OpenDispersalPacks_OK:
+    SET 5 4
+    SETITEMLOC BioDispersalPack_store ProbeBay
+    END
+
+SCRIPT OpenDispersalPacks_TooEarly:
+    TEXTEND OpenDispersalPacks_TooEarly
+
+SCRIPT TakeBiodispersalPack:
+    TAKE BioDispersalPack
+    SETITEMLOC BioDispersalPack_store _LOST
+    TEXTEND TakeBiodispersalPack
+
+SCRIPT LookBiodispersalPack:
+    TEXTEND LookBiodispersalPack
+
+SCRIPT LoadBiodispersalPack:
+    SETITEMLOC BioDispersalPack _LOST
+    SET 5 5
+    TEXTEND LoadBiodispersalPack
+
+SCRIPT CloseProbe_Step3:
+    ISSTATE 5 5
+    IFTRUE CanCloseProbe_Step3
+    ISSTATELEQ 5 5
+    IFTRUE CannotCloseProbeYet_Step3
+    TEXTEND CannotCloseProbeAgain_Step3
+
+SCRIPT CannotCloseProbeYet_Step3:
+    TEXTEND CannotCloseProbeYet_Step3
+
+SCRIPT CanCloseProbe_Step3:
+    SET 5 6
+    SETITEMLOC ProbeScrew_Closed Probe
+    SETITEMLOC ProbeScrew_Inventory _LOST
+    TEXTEND CanCloseProbe_Step3
+
+SCRIPT CloseProbe_Step2:
+    ISSTATE 5 6
+    IFTRUE CanCloseProbe_Step2
+    ISSTATELEQ 5 6
+    IFTRUE CannotCloseProbeYet_Step2
+    TEXTEND CannotCloseProbeAgain_Step2
+
+SCRIPT CannotCloseProbeYet_Step2:
+    TEXTEND CannotCloseProbeYet_Step2
+
+SCRIPT CanCloseProbe_Step2:
+    SET 5 7
+    TEXTEND CanCloseProbe_Step2
+
+SCRIPT CloseProbe_Step1:
+    ISSTATE 5 7
+    IFTRUE CanCloseProbe_Step1
+    ISSTATE 5 0
+    IFTRUE CannotCloseClosedHatch
+    ISSTATELEQ 5 7
+    IFTRUE CannotCloseProbeYet_Step1
+    JUMP CannotCloseClosedHatch
+
+SCRIPT CannotCloseClosedHatch:
+    TEXTEND CannotCloseClosedHatch
+
+SCRIPT CannotCloseProbeYet_Step1:
+    TEXTEND CannotCloseProbeYet_Step1
+
+SCRIPT CanCloseProbe_Step1:
+    SET 5 8
+    SET 1 4
+    SETITEMLOC ProbeScrew_Closed _LOST
+    SETITEMLOC ProbeWires_Attached _LOST
+    TEXTEND CanCloseProbe_Step1
+
+SCRIPT FailedClose_Step3:
+    TEXTEND FailedClose_Step3
+
+SCRIPT FailedClose_Step2:
+    TEXTEND FailedClose_Step2
+
+SCRIPT FailedClose_Step1:
+    TEXTEND FailedClose_Step1
+
+;SCRIPT ProbeReady:
+;    SET 1 4
+;    SET 5 9
+;    LONGTEXT ProbeReady
+;    END
+
+
+
+SCRIPT OpenProbe:
+    GOEND Probe
+
+SCRIPT ScrewProbeScrew:
+    END
+SCRIPT LookProbeHatch:
+    TEXTEND LookProbeHatch
+SCRIPT LookProbeScrewCarried:
+    TEXTEND LookProbeScrewCarried
+SCRIPT LookProbe:
+    TEXTEND LookProbe
+SCRIPT OpenPayloadShelf:
+    ISSTATE 7 1
+    IFTRUE ShelfAlreadyOpen
+    SET 7 1
+    SETITEMLOC BioDispersalPack_store ProbeBay
+    TEXTEND OpenPayloadShelf
+    END
+SCRIPT LookPayloadShelf:
+    ISSTATE 7 1
+    IFTRUE LookOpenPayloadShelf
+    TEXTEND LookPayloadShelf
+
+SCRIPT LookProbeWires:
+    TEXTEND LookProbeWires
+SCRIPT LookProbeScrew:
+    TEXTEND LookProbeScrew
+SCRIPT LookOpenPayloadShelf:
+    TEXTEND LookOpenPayloadShelf
+SCRIPT ShelfAlreadyOpen:
+    TEXTEND ShelfAlreadyOpen
