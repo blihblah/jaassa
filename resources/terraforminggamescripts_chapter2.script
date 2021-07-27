@@ -3,7 +3,7 @@ SCRIPT StartChapter2:
     WAITFORFIRE
     LOCATIONTEXTEND
 
-SCRIPT DefaultEntryScript:
+SCRIPT DefaultEntryScriptChapter2:
     LOCATIONTEXTEND
 
 ### PART 1
@@ -17,13 +17,13 @@ SCRIPT StartFlashback:
     GOEND Bedroom
 
 SCRIPT TakeBreakfast:
-    TAKE Breakfast_inv
+    TAKE BreakfastInventory
     SETITEMLOC Breakfast _LOST
     SET 2 1
     TEXTEND TakeBreakfast
 
 SCRIPT TakePhone:
-    TAKE Phone_inv
+    TAKE PhoneInventory
     SETITEMLOC Phone _LOST
     SET 3 1
     TEXTEND TakePhone
@@ -46,6 +46,7 @@ SCRIPT ExamineStopChart:
 
 SCRIPT ReadStopChart1:
     SET 5 1
+    SETITEMLOC BreakfastInventory _LOST
     TEXTEND ReadStopChart1
 SCRIPT ReadStopChart2:
     SET 5 2
@@ -61,15 +62,27 @@ SCRIPT GoBedroom:
 SCRIPT GoLivingroom:
     GOEND Livingroom
 SCRIPT CommuteToWork:
-    # TODO
-    END
+    ISSTATE 6 0
+    IFTRUE DressFirst
+    ISSTATE 2 0
+    IFTRUE RememberBreakfast
+    ISSTATE 3 0
+    IFTRUE RememberPhone
+    LONGTEXT LeaveToWork
+    WAITFORFIRE
+    GOEND Commute
+SCRIPT DressFirst:
+    TEXTEND DressFirst
+SCRIPT RememberBreakfast:
+    TEXTEND RememberBreakfast
+SCRIPT RememberPhone:
+    TEXTEND RememberPhone
+
 SCRIPT EatBreakfast:
-    # TODO
-    END
+    TEXTEND EatBreakfast
 
 SCRIPT LookAtDoor:
-    # TODO
-    END
+    TEXTEND LookAtDoor
 
 SCRIPT LookBreakfast:
     TEXTEND LookBreakfast
@@ -83,12 +96,17 @@ SCRIPT LookStopChart:
     TEXTEND LookStopChart
 
 SCRIPT PutOnWorkClothes:
+    ISSTATE 4 0
+    IFTRUE ShowerFirst
     SET 6 1
     SETITEMLOC Clothes _LOST
     TEXTEND PutOnWorkClothes
 
+SCRIPT ShowerFirst:
+    TEXTEND ShowerFirst
+
 SCRIPT ReceivePhonecall:
-    LONGTEXT ReceivePhonecall_LT
+    LONGTEXT ReceivePhonecall_LT1
     WAITFORFIRE
     SET 1 0
     SET 2 0
@@ -96,9 +114,19 @@ SCRIPT ReceivePhonecall:
     SET 4 0
     SET 5 0
     SET 6 0
+    SETITEMLOC PhoneInventory _LOST
+    GOTO OceanLanderSeat
     LONGTEXT EndFlashback_LT
     WAITFORFIRE
-    GOEND OceanLanderSeat
+    LONGTEXT FallingDown_LT
+    WAITFORFIRE
+    LONGTEXT SplashDownCountdown_LT
+    WAITFORFIRE
+    LONGTEXT SplashDown_LT
+    WAITFORFIRE
+    LONGTEXT ReachingSurface_LT
+    WAITFORFIRE
+    LOCATIONTEXTEND
 
 
 ## PART 2
@@ -112,7 +140,133 @@ SCRIPT ReceivePhonecall:
 # State 5 : Is wire 4 OK?
 # State 6 : Is antenna OK?
 
+SCRIPT GoShoreApproach:
+    ISSTATE 7 0
+    IFTRUE GoReallyShoreApproach
+    ISSTATE 8 0
+    IFTRUE GoReallyShoreApproach
+    ISSTATE 9 0
+    IFTRUE GoReallyShoreApproach
+    ISSTATE 10 0
+    IFTRUE GoReallyShoreApproach
+    SET 1 0
+    SET 2 0
+    SET 3 0
+    SET 4 0
+    SET 5 0
+    SET 6 0
+    SET 7 0
+    SET 8 0
+    SET 9 0
+    SET 10 0
+    LONGTEXT TimelapseGoShore
+    WAITFORFIRE
+    GOEND ShoreAirlock
 
+SCRIPT GoReallyShoreApproach:
+    GOEND ShoreApproach
+
+SCRIPT LookDaveShip:
+    TEXTEND LookDaveShip
+SCRIPT TalkAboutEarth:
+    SET 9 1
+    TEXTEND TalkAboutEarth
+SCRIPT TalkAboutMood:
+    SET 10 1
+    TEXTEND TalkAboutMood
+SCRIPT TalkToDaveShip:
+    TEXT TalkToDaveShip
+    WAITFORFIRE
+    GOEND DaveShip
+
+
+SCRIPT ExamineAnalyser:
+    TEXTEND ExamineAnalyser
+SCRIPT GoComputerLab:
+    GOEND ComputerLab
+SCRIPT GoShoreAirlock:
+    GOEND ShoreAirlock
+SCRIPT LookAnalyser:
+    TEXTEND LookAnalyser
+SCRIPT LookFlatsSample:
+    TEXTEND LookFlatsSample
+SCRIPT LookHillsideSample:
+    TEXTEND LookHillsideSample
+SCRIPT LookShoreSample:
+    TEXTEND LookShoreSample
+SCRIPT StartComputer:
+    END
+SCRIPT LeaveComputerLab:
+    ISSTATELEQ 7 1
+    IFTRUE GoShoreAirlock
+    ISSTATELEQ 8 1
+    IFTRUE GoShoreAirlock
+    ISSTATELEQ 9 1
+    IFTRUE GoShoreAirlock
+    SET 7 0
+    SET 8 0
+    SET 9 0
+    SET 10 1
+    # Build the base.
+    SET 1 2
+    LONGTEXT SampleAnalysisFinished
+    WAITFORFIRE
+    GOEND ShoreAirlock
+
+SCRIPT UseFlatsSample:
+    ISOBJECT SampleAnalyser
+    IFTRUE AnalyseFlatsSample
+    TEXTEND NonsensicalUse
+SCRIPT UseHillsideSample:
+    ISOBJECT SampleAnalyser
+    IFTRUE AnalyseHillsideSample
+    TEXTEND NonsensicalUse
+SCRIPT UseShoreSample:
+    ISOBJECT SampleAnalyser
+    IFTRUE AnalyseShoreSample
+    TEXTEND NonsensicalUse
+
+SCRIPT AnalyseFlatsSample:
+    SETITEMLOC FlatsSample _LOST
+    LONGTEXT AnalyseFlatsSample
+    WAITFORFIRE
+    SET 7 2
+    END
+
+SCRIPT AnalyseHillsideSample:
+    SETITEMLOC HillsideSample _LOST
+    LONGTEXT AnalyseHillsideSample
+    WAITFORFIRE
+    SET 8 2
+    END
+
+SCRIPT AnalyseShoreSample:
+    SETITEMLOC ShoreSample _LOST
+    LONGTEXT AnalyseShoreSample
+    WAITFORFIRE
+    SET 9 2
+    END
+
+
+SCRIPT ExamineLana:
+    TEXTEND ExamineLana
+SCRIPT ExamineLoader:
+    TEXTEND ExamineLoader
+SCRIPT LookLana:
+    TEXTEND LookLana
+SCRIPT LookLoader:
+    TEXTEND LookLoader
+SCRIPT TalkLana:
+    TEXTEND TalkLana
+SCRIPT WearLoader:
+    TEXTEND WearLoader
+
+SCRIPT TalkAboutCrew:
+    SET 7 1
+    TEXTEND TalkAboutCrew
+SCRIPT TalkAboutStep:
+    SET 8 1
+    TEXTEND TalkAboutStep
 
 SCRIPT EnterFlatsRover:
     GOEND Map
@@ -122,7 +276,8 @@ SCRIPT EnterShoreRover:
     GOEND Map
 
 SCRIPT ExamineAntenna:
-    TEXTEND ExamineAntenna
+    LONGTEXT ExamineAntenna
+    END
 SCRIPT LookAntenna:
     TEXTEND LookAntenna
 SCRIPT LookSocket1:
@@ -136,7 +291,89 @@ SCRIPT LookSocket4:
 SCRIPT PutAntennaDown:
     SETITEMLOC Antenna_carried _LOST
     SETITEMLOC Antenna_installed Transmitter
+    SETITEMLOC Wire1 Transmitter
+    SETITEMLOC Wire2 Transmitter
+    SETITEMLOC Wire3 Transmitter
+    SETITEMLOC Wire4 Transmitter
     TEXTEND PutAntennaDown
+
+SCRIPT TalkToAbe:
+    ISSTATE 11 0
+    IFTRUE GetSampleAssignment
+    ISSTATE 10 1
+    IFTRUE NoMoreAssignments
+    TEXTEND ReminderOfTheAssignment
+
+SCRIPT ExamineAbe:
+    TEXTEND ExamineAbe
+SCRIPT LookAbe:
+    TEXTEND LookAbe
+SCRIPT NoMoreAssignments:
+    TEXTEND NoMoreAssignments
+
+
+SCRIPT GetSampleAssignment:
+    SETITEMLOC Pebbles Flats
+    SETITEMLOC Bedrock Hillside
+    SETITEMLOC Sand Shore
+    LONGTEXT SampleAssignment_LT
+    WAITFORFIRE
+    SET 11 1
+    END
+
+SCRIPT EnterBase:
+    ISSTATE 12 0
+    IFTRUE GiveAntennaAssignment
+    LOCATIONTEXTEND
+SCRIPT GiveAntennaAssignment:
+    LONGTEXT AntennaAssignment
+    SET 12 1
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT ExaminePickaxe:
+    TEXTEND ExaminePickaxe
+SCRIPT ExamineSand:
+    TEXTEND ExamineSand
+SCRIPT LookBedrock:
+    TEXTEND LookBedrock
+SCRIPT LookFlatsPebbles:
+    TEXTEND LookFlatsPebbles
+SCRIPT LookPickaxe:
+    TEXTEND LookPickaxe
+SCRIPT LookSand:
+    TEXTEND LookSand
+SCRIPT TakeFlatsSample:
+    ISSTATE 7 0
+    IFTRUE TakePebble
+    TEXTEND AlreadyTakenPebbleSample
+SCRIPT TakeSand:
+    ISSTATE 9 0
+    IFTRUE TakeSandSample
+    TEXTEND AlreadyTakenSandSample
+
+SCRIPT UsePickaxe:
+    ISOBJECT Bedrock
+    IFTRUE UsePickaxeOnBedrock
+    TEXTEND NonsensicalUse
+
+SCRIPT UsePickaxeOnBedrock:
+    ISSTATE 8 0
+    IFTRUE TakeHillsideSample
+    TEXTEND AlreadyTakenSample
+
+SCRIPT TakeHillsideSample:
+    SET 8 1
+    TAKE HillsideSample
+    TEXTEND TakeHillsideSample
+SCRIPT TakePebble:
+    SET 7 1
+    TAKE FlatsSample
+    TEXTEND TakeFlatsSample
+SCRIPT TakeSandSample:
+    SET 9 1
+    TAKE ShoreSample
+    TEXTEND TakeShoreSample
 
 SCRIPT RoverToFlats:
     GOEND Flats
@@ -155,6 +392,7 @@ SCRIPT TakeAntenna:
 
 SCRIPT UseWire1:
     TEXT ConnectWire1
+    WAITFORFIRE
     ISOBJECT Socket1
     IFTRUE RightWiring1
     SET 2 0
@@ -162,18 +400,21 @@ SCRIPT UseWire1:
 
 SCRIPT UseWire2:
     TEXT ConnectWire2
+    WAITFORFIRE
     ISOBJECT Socket2
     IFTRUE RightWiring2
     SET 3 0
     END
 SCRIPT UseWire3:
     TEXT ConnectWire3
+    WAITFORFIRE
     ISOBJECT Socket3
     IFTRUE RightWiring3
     SET 4 0
     END
 SCRIPT UseWire4:
     TEXT ConnectWire4
+    WAITFORFIRE
     ISOBJECT Socket4
     IFTRUE RightWiring4
     SET 5 0
@@ -206,7 +447,44 @@ SCRIPT IsAntennaFixed:
     SET 3 0
     SET 4 0
     SET 5 0
-    TEXTEND AntennaNowFixed
+    TEXT AntennaNowFixed
+    WAITFORFIRE
+    JUMP EndChapter2
 
+SCRIPT EnterAirlock:
+    TEXT EnterAirlock
+    GOEND ShoreAirlock
+
+SCRIPT GetUpFromLanderSeat:
+    TEXT GetUpFromLanderSeat
+    WAITFORFIRE
+
+    GOEND ShoreApproach
+
+SCRIPT GoHillsideWithBase:
+    GOEND HillsideWithBase
+
+SCRIPT GoInsideBase:
+    GOEND InsideBase
+
+SCRIPT GoTransmitter:
+    GOEND Transmitter
+SCRIPT LeaveAirlock:
+    TEXT LeaveAirlock
+    WAITFORFIRE
+    GOEND Shore
 SCRIPT AntennaStillBroken:
+    TEXT AntennaStillBroken
     END
+
+SCRIPT TakePickaxe:
+    TAKE Pickaxe_inventory
+    SETITEMLOC Pickaxe _LOST
+    TEXTEND TakePickaxe
+
+SCRIPT EndChapter2:
+    LONGTEXT EndChapter2
+    WAITFORFIRE
+    TEXT PromptToStartChapter3
+    WAITFORFIRE
+    TO_MAIN_MENU

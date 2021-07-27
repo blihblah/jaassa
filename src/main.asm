@@ -1,10 +1,13 @@
-FNAME "jaasta.rom"
+FNAME "terraforming.rom"
 
-org $4000   ; Somewhere out of the way of small basic programs
+org $4000,$7fff
 
-db "AB" ;   ROM signature
-dw start  ; start address
-db 0,0,0,0,0,0,0,0,0,0,0,0
+;db "AB" ;   ROM signature
+;dw start  ; start address
+;db 0,0,0,0,0,0,0,0,0,0,0,0
+
+db	41h,42h
+dw	start,0,0,0,0,0,0
 
 ; Constants
 FORCLR: equ $F3E9
@@ -33,6 +36,7 @@ CALATR: equ $0087
 
 ENASLT:   equ  024h
 RSLREG:   equ 0138h
+EXPTBL:	equ	0FCC1h
 
 HKEY: equ $FD9F
 
@@ -40,7 +44,7 @@ KEYS: equ $FBE5
 
 ;; From :
 ;; https://www.msx.org/wiki/Develop_a_program_in_cartridge_ROM
-PageSize:	equ	04000h	; 16kB
+PageSize:	equ	$4000	; 16kB
 Seg_P8000_SW:	equ	07000h	; Segment switch for page 8000h-BFFFh (ASCII16k)
 
 ;; How the different memory pages are used.
@@ -76,11 +80,36 @@ start:
     ld a, $C9       ;; clear the interrupts
     ld (HKEY), a
     ei
-	call Set32KSlot
+	;call Set32KSlot
+
+	call	RSLREG
+	rrca
+	rrca
+	and	3	;Keep bits corresponding to the page 4000h-7FFFh
+	ld	c,a
+	ld	b,0
+	ld	hl,EXPTBL
+	add	hl,bc
+	ld	a,(hl)
+	and	80h
+	or	c
+	ld	c,a
+	inc	hl
+	inc	hl
+	inc	hl
+	inc	hl
+	ld	a,(hl)
+	and	0Ch
+	or	c
+	ld	h,080h
+	call	ENASLT		; Select the ROM on page 8000h-BFFFh
+	ld	a,1
+	ld	(Seg_P8000_SW),a
+
 	call InitializeProgram
 	call StartInterrupts
-	ld a, 1
-	
+
+    call LoadSprites
 	jp MainLoop
 
 InitStack:
@@ -89,12 +118,34 @@ InitStack:
     ei
     jp MainLoop
 
+
+SwapCode:
+    ld	(Seg_P8000_SW),a
+    ret
+
+HideSprites:
+    ld a, 194
+    ld (SPRITE_VALS), a
+    ld a, 0
+    call CALATR
+    ex de, hl
+    ld bc, 4
+    ld hl, SPRITE_VALS
+    call LDIRVM
+    ret
+
 	
 MainLoop:
 	call TitleScreen
+    call HideSprites
 	call GameInit
 	call LoadMainGraphics
-	call LoadSprites
+
+	;call LoadSprites
+    ;; Load the correct page.
+    ld a, (GAME_PAGE)
+    call SwapCode
+
 	call RenderLocationViewport
 	call ClearInventoryBox
 	call ClearTextbox
@@ -105,7 +156,17 @@ MainLoop:
 	jp MainLoop
 	
 GameInit:
-	ld hl, __LOCATION_Home
+    ;; Load the correct page.
+    ld a, (GAME_PAGE)
+    call SwapCode
+    ;; Read the header values to RAM.
+
+    ld hl, EPISODEHEADERSTART
+    ld de, START_LOCATION
+    ld bc, 10
+    ldir
+
+	ld hl, (START_LOCATION)
 	ld (PLAYER_LOCATION), hl
 	ld a, 0
 	ld (POINTER_INDEX), a
@@ -192,9 +253,12 @@ InitializeProgram:
 ;; Load the main graphics to VRAM.
 ;; TODO: Use constants rather than hard-coded values.
 LoadMainGraphics:
+    ld a, 1
+    call SwapCode
+
 	ld a, $11
 	ld hl, $2000
-	ld bc, 268*8*3
+	ld bc, 256*8*3
 	call FILVRM
 	
 	ld bc, 256*3
@@ -223,11 +287,11 @@ LoadMainGraphics:
 	ld hl, 0 * 8 + $2000
 	ld a, $1f
 	ld bc, 256 * 8
-	call FILVRM	
+	call FILVRM
 	ld hl, $2800
 	ld a, $1f
 	ld bc, 256 * 8
-	call FILVRM	
+	call FILVRM
 	ld hl, $3000
 	ld a, $1e
 	ld bc, 256 * 8
@@ -238,7 +302,7 @@ LoadMainGraphics:
 	ld de, LEN_BASECHARS * 8
 	ld hl, UIGFX_PATTERNS
 	call LDIRVM
-	ld bc, 240 + 8 + 8 
+	ld bc, 240 + 8 + 8
 	ld de, LEN_BASECHARS * 8 + 256 * 8 * 1
 	ld hl, UIGFX_PATTERNS
 	call LDIRVM
@@ -1242,7 +1306,7 @@ DisplayPrompt:
 
 ;; Initialize item locations
 InitializeItemLocations:
-		ld hl, ITEM_ADDRESS_LIST
+		ld hl, (ITEM_ADDRESS_LIST)
 		ld e, (hl)
 		ld d, 0
 		ex de, hl
@@ -1250,7 +1314,7 @@ InitializeItemLocations:
 		ld b, h
 		ld c, l
 		
-		ld hl, ITEM_INIT_LOCATIONS
+		ld hl, (ITEM_INIT_LOCATIONS)
 		ld de, ITEM_RAM_LOCATIONS
 		ldir		
 		ret
@@ -1492,19 +1556,10 @@ Set32KSlot:
 end_coreCode:
 
 
-;; Include graphics binaries
-
-UIGFX_COLOUR_RLE: incbin "incbins/gfx_ui_colours.bin"
-UIGFX_EMPTY_SCREEN_RLE: incbin "incbins/gfx_ui_chars_rle.bin"
-UIGFX_PATTERNS: incbin "incbins/gfx_ui.bin"
-CHARSET_PATTERNS: incbin "incbins/gfx_chars.bin"
-
-UIGFX_TITLESCREEN_GFX: incbin "incbins/gfx_title.bin"
-UIGFX_TITLESCREEN_RLE: incbin "incbins/gfx_title_chars_rle.bin"
-UIGFX_TITLESCREEN_CRLE: incbin "incbins/gfx_title_colours.bin"
-
 ;; When reusing the engine, you can replace this.
 TitleScreen:
+        ld a, 1
+        call SwapCode
 		;; Render the title screen.
 		call WaitForBlank
 		;; 1. Wipe all colourcoding.
@@ -1513,41 +1568,96 @@ TitleScreen:
 		ld a, 1
 		call FILVRM
 		;; 2. Unpack gfx coding.
-		ld hl, UIGFX_TITLESCREEN_GFX
+		ld hl, UIGFX_TITLESCREEN_GFX_1
 		ld de, 0
-		ld bc, UIGFX_TITLESCREEN_RLE - UIGFX_TITLESCREEN_GFX
+		ld bc, UIGFX_TITLESCREEN_GFX_2 - UIGFX_TITLESCREEN_GFX_1
 		call LDIRVM
-		ld hl, UIGFX_TITLESCREEN_GFX
+		ld hl, UIGFX_TITLESCREEN_GFX_2
 		ld de, $800
-		ld bc, UIGFX_TITLESCREEN_RLE - UIGFX_TITLESCREEN_GFX
+		ld bc, UIGFX_TITLESCREEN_GFX_3 - UIGFX_TITLESCREEN_GFX_2
 		call LDIRVM
-		ld hl, UIGFX_TITLESCREEN_GFX
+		ld hl, UIGFX_TITLESCREEN_GFX_3
 		ld de, $1000
-		ld bc, UIGFX_TITLESCREEN_RLE - UIGFX_TITLESCREEN_GFX
+		ld bc, UIGFX_TITLESCREEN - UIGFX_TITLESCREEN_GFX_3
 		call LDIRVM
 		
-		;; 3. Unpack RLE
-		ld de, UIGFX_TITLESCREEN_RLE
-		ld hl, $1800
-		call LoadRLE2VRAM
+		;; 3. Copy pattern generator
+		ld hl, UIGFX_TITLESCREEN
+		ld bc, 256*3
+		ld de, $1800
+		call LDIRVM
+
 		;; 4. Unpack colour RLE.
 		call WaitForBlank
-		ld de, UIGFX_TITLESCREEN_CRLE
+		ld de, UIGFX_TITLESCREEN_CRLE_1
 		ld hl, $2000
 		call LoadRLE2VRAM
-		ld de, UIGFX_TITLESCREEN_CRLE
+		ld de, UIGFX_TITLESCREEN_CRLE_2
 		ld hl, $2800
 		call LoadRLE2VRAM
-		ld de, UIGFX_TITLESCREEN_CRLE
+		ld de, UIGFX_TITLESCREEN_CRLE_3
 		ld hl, $3000
 		call LoadRLE2VRAM
-		
+
+		ld a, 3*4
+		ld (SPRITE_VALS + 2), a
+		ld a, 0
+		call CALATR
+		ex de, hl
+		ld a, 5
+		ld (SPRITE_VALS + 3), a
+		ld a, 180
+		ld (SPRITE_VALS + 1), a
+
+		ld a, 2
+		ld (GAME_PAGE), a
+	.updatePointerCoord:
+	    ld a, (GAME_PAGE)
+	    rlca
+	    inc a
+	    rlca
+	    rlca
+	    rlca
+	    add a, 256-13
+
+		ld (SPRITE_VALS), a
+
+    .renderChapterPointer:
+		ld a, 0
+		call CALATR
+		ex de, hl
+		ld hl, SPRITE_VALS
+		ld bc, 4
+		call LDIRVM
+
+
 	.loop:
 		call CheckControls
 		ld a, (CONTROL_READ)
 		cp 16
 		ret z
-		jp .loop
+		cp 1
+		jp z, .moveUp
+		cp 5
+		jp z, .moveDown
+
+		jp .renderChapterPointer
+
+    .moveUp:
+        ld a, (GAME_PAGE)
+        cp 2
+        jp z, .renderChapterPointer
+        dec a
+        ld (GAME_PAGE), a
+        jp .updatePointerCoord
+    .moveDown:
+        ld a, (GAME_PAGE)
+        cp 4
+        jp z, .renderChapterPointer
+        inc a
+        ld (GAME_PAGE), a
+        jp .updatePointerCoord
+
 
 
 
@@ -1564,39 +1674,116 @@ SPRITE_GFX:
 		
 end_permanentData:
 
+;; Fill in the extra space of the page.
+ds PageSize - ($ - $4000),255
+
+org	$8000, $BFFF	; page 1 (Title screen graphics and all)
+
+;; Include graphics binaries
+
+UIGFX_COLOUR_RLE: incbin "incbins/gfx_ui_colours.bin"
+UIGFX_EMPTY_SCREEN_RLE: incbin "incbins/gfx_ui_chars_rle.bin"
+UIGFX_PATTERNS: incbin "incbins/gfx_ui.bin"
+CHARSET_PATTERNS: incbin "incbins/gfx_chars.bin"
+
+UIGFX_TITLESCREEN_GFX_1: incbin "incbins/gfx_title_0.bin"
+UIGFX_TITLESCREEN_GFX_2: incbin "incbins/gfx_title_1.bin"
+UIGFX_TITLESCREEN_GFX_3: incbin "incbins/gfx_title_2.bin"
+UIGFX_TITLESCREEN: incbin "incbins/gfx_title_chars.bin"
+UIGFX_TITLESCREEN_CRLE_1: incbin "incbins/gfx_title_0_colours.bin"
+UIGFX_TITLESCREEN_CRLE_2: incbin "incbins/gfx_title_1_colours.bin"
+UIGFX_TITLESCREEN_CRLE_3: incbin "incbins/gfx_title_2_colours.bin"
+
+
 ;; These should all fit in one 16K page.
 ;; TODO: Save TILE_COLOUR_TABLE and TILE_PATTERN_TABLE in RAM
 ;; TODO: Save ITEM_ADDRESS_LIST and ITEM_INIT_LOCATIONS
 
 ;; Fill in the extra space of the page.
-ds ((($-1)/$4000)+1)*$4000-$
+ds PageSize - ($ - 8000h),255
 
-TILEGFX:
-        ;; THIS HAS TO HAVE CONSTANT ADDRESSING ACROSS PAGES!
-		INCLUDE "pregen/tilegfx.asm_pregen"
-        ;; THIS HAS TO HAVE CONSTANT ADDRESSING ACROSS PAGES!
-		INCLUDE "pregen/items_rom.asm_pregen"
+org	$8000, $BFFF	; page 2
 
-		INCLUDE "pregen/scripts.asm_pregen"
+;; CHAPTER 1
 
-LOCATION_RECORDS:
-		INCLUDE "pregen/locations.asm_pregen"
-PALETTES:
-		INCLUDE "pregen/palette.asm_pregen"
-GFXVIEWS:
-        INCLUDE "pregen/gfxview.asm_pregen"
-TEXTS:
-		INCLUDE "pregen/texts.asm_pregen"
+EPISODEHEADERSTART:
+    INCLUDE "pregen/chapterconstants.asm_pregen"
+;; Chapter contents
+INCLUDE "pregen/tilegfx.asm_pregen"
+INCLUDE "pregen/items_rom.asm_pregen"
+INCLUDE "pregen/scripts.asm_pregen"
+INCLUDE "pregen/locations.asm_pregen"
+INCLUDE "pregen/palette.asm_pregen"
+INCLUDE "pregen/gfxview.asm_pregen"
+INCLUDE "pregen/texts.asm_pregen"
+
+END_CHAPTER_1:
+;ds ((($-1)/$4000)+1)*$4000-$
+ds PageSize - ($ - $8000),255
+
+	org	$8000, $BFFF	; page 3
+
+;; CHAPTER 2
+    INCLUDE "pregen/chapterconstants_chapter2.asm_pregen"
+;; Chapter contents
+INCLUDE "pregen/tilegfx_chapter2.asm_pregen"
+INCLUDE "pregen/items_rom_chapter2.asm_pregen"
+INCLUDE "pregen/scripts_chapter2.asm_pregen"
+INCLUDE "pregen/locations_chapter2.asm_pregen"
+INCLUDE "pregen/palette_chapter2.asm_pregen"
+INCLUDE "pregen/gfxview_chapter2.asm_pregen"
+INCLUDE "pregen/texts_chapter2.asm_pregen"
 
 
-		
+END_CHAPTER_2:
 
-;; RAM
-endadr: ds ((($-1)/$4000)+1)*$4000-$
+ds PageSize - ($ - $8000),255
+
+	org	$8000, $BFFF	; page 4
+
+;; CHAPTER 3
+    INCLUDE "pregen/chapterconstants_chapter3.asm_pregen"
+;; Chapter contents
+INCLUDE "pregen/tilegfx_chapter3.asm_pregen"
+INCLUDE "pregen/items_rom_chapter3.asm_pregen"
+INCLUDE "pregen/scripts_chapter3.asm_pregen"
+INCLUDE "pregen/locations_chapter3.asm_pregen"
+INCLUDE "pregen/palette_chapter3.asm_pregen"
+INCLUDE "pregen/gfxview_chapter3.asm_pregen"
+INCLUDE "pregen/texts_chapter3.asm_pregen"
+END_CHAPTER_3:
+ds PageSize - ($ - $8000),255
+	org	8000h,0BFFFh	; page 5
+
+	db "Text from segment "
+	ds PageSize - ($ - 08000h),255
+
+		org	8000h,0BFFFh	; page 6
+
+	db "Text from segment "
+	ds PageSize - ($ - 08000h),255
+
+		org	8000h,0BFFFh	; page 7
+
+	db "Text from segment 7"
+	ds PageSize - ($ - 08000h),255
+
+	;	org	8000h,0BFFFh	; page 8
+
+	;db "Text from segment 7"
+	;ds PageSize - ($ - 08000h),255
+
 
 org $c800
-		INCLUDE "pregen/items_ram.asm_pregen"
 
+INCLUDE "pregen/items_ram.asm_pregen"
+
+;; Copied from the page header
+START_LOCATION: RW 1 ;;START_LOCATION ;; Chapter start location
+TILE_COLOUR_TABLE: RW 1 ;; TILE_COLOUR_TABLE ;; Tile colour table
+TILE_PATTERN_TABLE: RW 1 ;; TILE_PATTERN_TABLE ;; Tile pattern table
+ITEM_ADDRESS_LIST: RW 1 ;; ITEM_ADDRESS_LIST ;; Item address list
+ITEM_INIT_LOCATIONS: RW 1 ;; ITEM_INIT_LOCATIONS ;; Initial item locations
 
 LATEST_VDP_INTERRUPT: RB 1
 END_BYTE: RB 1
@@ -1626,7 +1813,8 @@ VIEW_ITEM_OFFSET: RB 1
 VIEW_ITEM_CHOSEN: RB 1
 
 POINTER_INDEX: RB 1
-POINTER_Y: RB 1		
+POINTER_Y: RB 1
+GAME_PAGE: RB 1
 
 TEXT_BUFFER: RB C_TEXT_BUFFER_LENGTH
 RENDER_HELP: RW 1
@@ -1659,7 +1847,7 @@ C_TRIGGER_DELAY: equ 41
 COMMAND_LIST_INDEX: RB 1
 COMMAND_LIST_LENGTH: RB 1
 
-_NO_OF_SPRITES: EQU 3
+_NO_OF_SPRITES: EQU 4
 
 SPRITE_VALS: RB 4
 

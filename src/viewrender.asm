@@ -146,7 +146,7 @@ UnpackTilePalette:
 		push hl
 
 		ld hl, TEXT_BUFFER
-		ld bc, TILE_PATTERN_TABLE
+		ld bc, (TILE_PATTERN_TABLE)
     .loopReading:
 		ld a, (de)
 		cp $ff
@@ -225,7 +225,7 @@ UnpackColourTable:
 		add hl, de
 		ld e, (hl) ;; E now contains the palette index.
 		ld d, 0
-		ld hl, TILE_COLOUR_TABLE
+		ld hl, (TILE_COLOUR_TABLE)
 		ex de, hl
 		add hl, hl
 		add hl, hl

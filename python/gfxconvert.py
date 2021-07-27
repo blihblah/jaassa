@@ -60,7 +60,6 @@ def create_charset(imgname, defined_chars=None, orientation="horizontal", redund
     """
     img = Image.open(imgname)
     w, h = img.size
-    print("Read image size:", w, h)
     if defined_chars is None:
         defined_chars = {}
 
@@ -76,6 +75,8 @@ def create_charset(imgname, defined_chars=None, orientation="horizontal", redund
                         px = img.getpixel((x, y))
                         if px in ALPHA:
                             break
+                        if px not in PALETTE_MAP:
+                            print("BAD PIXEL VALUE!", px, imgname, x, y)
                         ch.append(px)
                     if px in ALPHA:
                         break
@@ -96,6 +97,8 @@ def create_charset(imgname, defined_chars=None, orientation="horizontal", redund
                         px = img.getpixel((x, y))
                         if px in ALPHA:
                             break
+                        if px not in PALETTE_MAP:
+                            print("BAD PIXEL VALUE!", px, imgname)
                         ch.append(px)
                     if px in ALPHA:
                         break
@@ -107,7 +110,7 @@ def create_charset(imgname, defined_chars=None, orientation="horizontal", redund
                     n_key += 1
                     defined_chars[ch] = key
                 actual_output[(x0 / 8, y0 / 8)] = defined_chars[ch]
-    print("Actual output size:", len(actual_output))
+
     return defined_chars, actual_output
 
 
@@ -206,3 +209,45 @@ def rle_encode_graphics(defined_chars, first_color=(0, 0)):
             prev_col = (c0, c1)
         colourcoding = rle_encode_sequence(colors)
     return colourcoding, patterns
+
+
+def create_fullscreen(imgname):
+    """
+    Read a PNG file and convert it.
+    """
+    img = Image.open(imgname)
+    w, h = img.size
+
+    by_segment = {}
+
+
+    for area in [0, 1, 2]:
+        defined_chars = {}
+        n_key = len(defined_chars)
+        actual_output = {}
+        base_y = 64 * area
+        for y0 in range(0, 64, 8):
+            for x0 in range(0, w, 8):
+                ch = []
+                for y in range(y0, y0 + 8):
+                    for x in range(x0, x0 + 8):
+                        px = img.getpixel((x, y + base_y))
+                        if px in ALPHA:
+                            break
+                        if px not in PALETTE_MAP:
+                            print("BAD PIXEL VALUE!", px, imgname)
+                        ch.append(px)
+                    if px in ALPHA:
+                        break
+                if px in ALPHA:
+                    continue
+
+                ch = tuple(ch)
+                if ch not in defined_chars:
+                    key = n_key
+                    n_key += 1
+                    defined_chars[ch] = key
+                actual_output[(x0 / 8, y0 / 8)] = defined_chars[ch]
+        by_segment[area] = {'chars': defined_chars,
+                            'charmap': actual_output}
+    return by_segment

@@ -58,7 +58,7 @@ ScanLocationHotspots:
 		ret
 				
 	.findItemsAtAddress:
-		ld hl, ITEM_ADDRESS_LIST
+		ld hl, (ITEM_ADDRESS_LIST)
 		ld b, (hl)
 		inc hl
 		
