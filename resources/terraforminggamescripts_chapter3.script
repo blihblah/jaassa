@@ -40,6 +40,9 @@ SCRIPT DefaultEntryScriptCh3:
 # variable 4
 # 0 - transmission not received
 # 1 - transmission received
+# variable 5
+# 0 - receiver not fixed
+# 1 - receiver fixed
 
 SCRIPT GoComputerRoom:
     GOEND ComputerRoom
@@ -59,7 +62,7 @@ SCRIPT GetOnRoverCh3:
 SCRIPT GoCryobayCh3:
     GOEND CryobayCh3
 SCRIPT GoHillsideBaseCh3:
-    ISSTATELEQ 1 4
+    ISSTATELEQ 1 3
     IFTRUE CannotExitBase
     GOEND HillsideBaseCh3
 SCRIPT CannotExitBase:
@@ -89,13 +92,14 @@ SCRIPT CannotWearLoaderBatteryEmpty:
     TEXTEND CannotWearLoaderBatteryEmpty
 SCRIPT OpenLoaderHatch:
     SETITEMLOC Battery_Ground InsideBaseCh3
+    SETITEMLOC BatteryHatch _LOST
     TEXTEND OpenLoaderHatch
 
 
 SCRIPT GoComputerDesktopCh3:
     GOEND ComputerDesktopCh3
 SCRIPT LookCommsOption:
-    ISSTATE 1 5
+    ISSTATE 5 1
     IFTRUE ReceiveTransmission
     TEXTEND LookCommsOption
 SCRIPT LookCryoOption:
@@ -119,7 +123,51 @@ SCRIPT UseToolkit:
     IFTRUE PointlessUse
     ISOBJECT RoverCh3
     IFTRUE RepairRover
+    ISOBJECT LoaderCh3
+    IFTRUE ExtractLoaderGuts
+    ISOBJECT TransmitterElectronics
+    IFTRUE UseToolkitOnTransmitterElectronics
     TEXTEND PointlessUse
+
+SCRIPT ExtractLoaderGuts:
+    ISSTATE 3 1
+    IFTRUE PointlessUse
+    TAKE RoverBattery
+    TAKE SpareComponents
+    SET 3 1
+    LONGTEXT ExtractLoaderGuts
+    END
+
+SCRIPT ExamineTransmitterElectronics:
+    TEXTEND ExamineTransmitterElectronics
+SCRIPT LookBatteryHatch:
+    TEXTEND LookBatteryHatch
+SCRIPT LookRoverBattery:
+    TEXTEND LookRoverBattery
+SCRIPT LookSpareComponents:
+    TEXTEND LookSpareComponents
+SCRIPT LookTransmitterElectronics:
+    ISSTATE 5 1
+    IFTRUE LookRepairedElectronics
+    TEXTEND LookTransmitterElectronics
+SCRIPT LookRepairedElectronics:
+    TEXTEND LookRepairedElectronics
+SCRIPT UseSpareComponents:
+    ISOBJECT TransmitterElectronics
+    IFTRUE RepairTransmitter
+    JUMP PointlessUse
+
+SCRIPT RepairTransmitter:
+    SET 5 1
+    SETITEMLOC SpareComponents _LOST
+    LONGTEXT RepairTransmitter_LT
+    END
+
+SCRIPT UseToolkitOnTransmitterElectronics:
+    ISSTATE 5 1
+    IFTRUE PointlessUse
+    LONGTEXT UseToolkitOnTransmitterElectronics
+    END
 
 SCRIPT PointlessUse:
     TEXTEND PointlessUse
@@ -144,6 +192,7 @@ SCRIPT ShutdownPowerplant:
     LONGTEXT Shutdown_2
     WAITFORFIRE
     LONGTEXT LeaveTheBase
+    WAITFORFIRE
     GOEND FlatsCh3
 
 
@@ -159,26 +208,80 @@ SCRIPT TalkAboutOthers:
     LONGTEXT TalkAboutOthers
     END
 SCRIPT UseBattery:
-    ISOBJECT BatteryHatch
+    ISOBJECT LoaderCh3
     IFTRUE UseBatteryOnLoader
+    ISOBJECT Charger
+    IFTRUE ChargeBattery
     TEXTEND PointlessUse
 
+SCRIPT PointlessUse
+    TEXTEND PointlessUse
+
+
+SCRIPT ChargeBattery:
+    ISSTATE 1 2
+    IFTRUE PointlessUse
+    SET 1 2
+    LONGTEXT RechargedBattery
+    END
+
+
 SCRIPT UseBatteryOnLoader:
-    SET 1 3
+    ISSTATE 1 1
+    IFTRUE PointlessUse
+    SET 1 4
     SETITEMLOC RoverCh3 InsideBaseCh3
-    TEXTEND UseBatteryOnLoader
+    SETITEMLOC Battery_Inventory _LOST
+    LONGTEXT UseBatteryOnLoader
+    END
 
 SCRIPT WearLoaderCh3:
     ISSTATELEQ 1 2
     IFTRUE CannotWearLoaderBatteryEmpty
     TEXTEND CannotWearLoaderNoReason
 
+
+SCRIPT LookRedButton:
+    TEXTEND LookRedButton
+SCRIPT PushRedButton:
+    ISSTATELEQ 1 4
+    IFTRUE TooEarlyToShutdown
+    ISSTATE 2 0
+    IFTRUE WhyShutdown
+    ISSTATE 4 0
+    IFTRUE NowhereToGo
+    JUMP ShutdownPowerplant
+
+SCRIPT LookCryopodCh3:
+    TEXTEND LookCryopodCh3
+SCRIPT LookReactor:
+    TEXTEND LookReactor
+
+SCRIPT TooEarlyToShutdown:
+    TEXTEND TooEarlyToShutdown
+SCRIPT WhyShutdown:
+    TEXTEND WhyShutdown
+SCRIPT NowhereToGo:
+    TEXTEND NowhereToGo
+
 ###
+
+SCRIPT LookLichenHillside:
+    TEXTEND LookLichenHillside
+SCRIPT LookMossHillside:
+    TEXTEND LookMossHillside
+
+SCRIPT LookMossFlats:
+    TEXTEND LookMossFlats
+
+
 
 SCRIPT GoFlatsCh3:
     GOEND FlatsCh3
 SCRIPT LookRoverFlatsCh3:
     TEXTEND LookRoverFlatsCh3
+SCRIPT TalkToDaveFlatsCh3:
+    GOEND DaveFlats
 SCRIPT TalkAboutColony:
     LONGTEXT TalkAboutColonyOnStep_1
     END

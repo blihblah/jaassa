@@ -1660,6 +1660,34 @@ TitleScreen:
 
 
 
+;; TODO Create the sound effects.
+SOUND_PORTAL:
+	DB 5, 1, 7, %10011011, 10, 16, 12, 5, 6, 15, 13, 15, -1
+
+
+PlayMovementSound:
+    push hl
+    ld hl, SOUND_PORTAL
+    call PlaySound
+    pop hl
+    ret
+
+PlaySound:
+    ;; Basically,
+    ;; LD HL, SOUND_CRASH
+    ;; Call PlaySound
+	;; HL contains the effect data.
+	ld a, (hl)
+	cp -1
+	ret z
+	inc hl
+	ld e, (hl)
+	inc hl
+	push hl
+	call WRTPSG
+	pop hl
+	jp PlaySound
+
 
 ;;;;;; Data included from the conversions.
 
@@ -1693,6 +1721,7 @@ UIGFX_TITLESCREEN: incbin "incbins/gfx_title_chars.bin"
 UIGFX_TITLESCREEN_CRLE_1: incbin "incbins/gfx_title_0_colours.bin"
 UIGFX_TITLESCREEN_CRLE_2: incbin "incbins/gfx_title_1_colours.bin"
 UIGFX_TITLESCREEN_CRLE_3: incbin "incbins/gfx_title_2_colours.bin"
+end_gfx:
 
 
 ;; These should all fit in one 16K page.

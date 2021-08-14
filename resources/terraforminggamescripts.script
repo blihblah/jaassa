@@ -70,6 +70,7 @@ SCRIPT EntranceMesshall:
 
 SCRIPT EntranceMesshall_Probelaunch:
     LONGTEXT EntranceMesshall_Probelaunch
+    WAITFORFIRE
     SET 1 5
     LONGTEXT Landing_1
     WAITFORFIRE
@@ -204,6 +205,7 @@ SCRIPT CannotRepressuriseProbeBay:
 
 SCRIPT RepressuriseProbeBay:
     SET 2 2
+    SET 1 2
     TEXTEND RepressuriseProbeBay
 
 #####
@@ -222,7 +224,12 @@ SCRIPT OpenScienceComputer:
     WAITFORFIRE
     GOEND ComputerMain
 
+SCRIPT AutoAnalysisNotYetDone:
+    TEXTEND AutoAnalysisNotYetDone
+
 SCRIPT DisplayAnalysisResults:
+    ISSTATELEQ 1 1
+    IFTRUE AutoAnalysisNotYetDone
     LONGTEXT ScanAnalysisResults
     SET 3 1
     END
@@ -246,6 +253,21 @@ SCRIPT ReadOnEarthClimate:
 SCRIPT ReadOnEarthSoil:
     LONGTEXT EarthSoil
     END
+
+
+SCRIPT EnterWater:
+    LONGTEXT locationQuizWater
+    END
+SCRIPT EnterSoil:
+    LONGTEXT locationSoilQuiz
+    END
+SCRIPT EnterAtmosphere:
+    LONGTEXT locationQuizAtmosphere
+    END
+SCRIPT EnterClimate:
+    LONGTEXT locationQuizClimate
+    END
+
 
 SCRIPT ChooseStartQuiz:
     ISSTATE 3 0
@@ -350,8 +372,8 @@ SCRIPT TakeSealant:
     TEXTEND TakeSealant
 
 SCRIPT GoComputerMain:
-    TEXT OpenComputer
-    WAITFORFIRE
+    #TEXT OpenComputer
+    #WAITFORFIRE
     GOEND ComputerMain
 
 SCRIPT GoOutsideProbeBay:
@@ -453,7 +475,19 @@ SCRIPT TakeBiodispersalPack:
 SCRIPT LookBiodispersalPack:
     TEXTEND LookBiodispersalPack
 
+SCRIPT ProbeNotOpenedYet:
+    TEXTEND ProbeNotOpenedYet
+
 SCRIPT LoadBiodispersalPack:
+    ISSTATELEQ 5 2
+    IFTRUE ProbeNotOpenedYet
+    ISOBJECT ProbeZoomed
+    IFTRUE LoadBiodispersalPackReally
+    ISOBJECT ProbeHatch
+    IFTRUE LoadBiodispersalPackReally
+    TEXTEND BadUseOnObject
+
+SCRIPT LoadBiodispersalPackReally:
     SETITEMLOC BioDispersalPack _LOST
     SET 5 5
     TEXTEND LoadBiodispersalPack
@@ -527,13 +561,47 @@ SCRIPT FailedClose_Step1:
 
 
 
+####
+# FILLER
+
+SCRIPT LookSven:
+    TEXTEND LookSven
+
+SCRIPT TalkSven:
+    TEXTEND TalkSven
+
+SCRIPT TalkKim:
+    TEXTEND TalkKim
+
+SCRIPT LookKim:
+    TEXTEND LookKim
+
+SCRIPT TalkAlejandro:
+    TEXTEND TalkAlejandro
+
+SCRIPT LookAlejandro:
+    TEXTEND LookAlejandro
+
+SCRIPT LookCryopod:
+    TEXTEND LookCryopod
+SCRIPT LookSealant:
+    TEXTEND LookSealant
+SCRIPT LookSpacesuit:
+    TEXTEND LookSpacesuit
+
+SCRIPT DontOpenProbeYet:
+    TEXTEND DontOpenProbeYet
+
 SCRIPT OpenProbe:
+    ISSTATELEQ 1 2
+    IFTRUE DontOpenProbeYet
     GOEND Probe
 
 SCRIPT ScrewProbeScrew:
     END
 SCRIPT LookProbeHatch:
-    TEXTEND LookProbeHatch
+    LONGTEXT LookProbeHatch
+    END
 SCRIPT LookProbeScrewCarried:
     TEXTEND LookProbeScrewCarried
 SCRIPT LookProbe:

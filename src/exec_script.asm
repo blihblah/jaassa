@@ -46,6 +46,8 @@ ExecuteScriptHL:
 		jp z, .cmdIsStateLEQ
 		dec a
 		jp z, .cmdFinishGame
+		dec a
+		jp z, .cmdPlaySound
 		;; TODO: Add "CALL <routine handle>"
 		;; TODO: Add "IsItemLoc <item> <location>"
 		;; TODO: Implement SetTile
@@ -235,6 +237,7 @@ ExecuteScriptHL:
 		ld hl, GAME_STATE
 		add hl, de
 		ld a, (hl)
+		inc b
 		cp b
 		jp nc, .popPassTwo
 		ld a, 1
@@ -244,9 +247,17 @@ ExecuteScriptHL:
 	.cmdFinishGame:
 	    jp InitStack
 
+	.cmdPlaySound:
+	    push hl
+	    ld e, (hl)
+	    inc hl
+	    ld d, (hl)
+	    call PlaySound
+	    jp .popPassTwo
+
 	.popPassTwo:
 		;; Typical ending for the script: pop the code execution pointer
-		;; back to HL and increment it by 2 bytes
+		;; back to HL and increment it by 2 bytes, i.e., two-byte parameter
 		pop hl
 		inc hl
 		inc hl

@@ -93,7 +93,8 @@ COMMAND_MAP = {
     "WAITFORFIRE": 15,
     "JUMP": 16,
     "ISSTATELEQ": 17,
-    "TO_MAIN_MENU": 18
+    "TO_MAIN_MENU": 18,
+    "PLAYSOUND": 19
 }
 
 # TODO: Consider making these easier to change.
@@ -133,7 +134,8 @@ PLAYER_COMMANDS = {
     "unscrew": 17,
     "open": 18,
     "close": 19,
-    "get on": 20
+    "get on": 20,
+    "push": 21
 
 }
 
@@ -274,6 +276,8 @@ def write_texts(cfg, data, fname):
             if k in ("SelectObject", "SelectVerb", "SelectTarget"):
                 continue
             v = encode_text(v_orig, is_prewrapped=(k in data['prewrapped_texts']))
+            if len(v) > 30 * 6:
+                print("ERROR! TOO LONG TEXT:", k)
             coded_length += len(v)
             if coded_length > 2**14 - 2:
                 f.write("DS PageSize - ($ - 8000h),255")
@@ -329,7 +333,7 @@ def longtext(cfg, data, s_name, text):
         data['used_strings'].add(s_name)
         return [s_name]
     text = wordwrap_text(text)
-    LINES = 5
+    LINES = 6
     entries = []
     SUB_LEN = LINES * LINE_LENGTH
     while len(text) > SUB_LEN:
@@ -422,6 +426,8 @@ def parse_scriptfile(cfg, data, infilename):
                     current_script.append((txtcmd, entry))
                     if entry is not entries[-1]:
                         current_script.append((waitcmd,))
+            elif cmd == "PLAYSOUND":
+                current_script.append((cmdval, parts[1]))
             elif cmd.startswith("SCRIPT"):
                 if current_script is not None:
                     if current_script[-1][0] not in valid_ends:
@@ -494,6 +500,8 @@ def write_script(data, script_commands, outfn):
                     f.write("    DB {}, {}\n".format(cmd[1], cmd[2]))
                 elif cmd[0] == 16:  # JUMP
                     f.write("    DW {}\n".format(as_scriptlabel(cmd[1])))
+                elif cmd[0] == 19:  # PLAYSOUND
+                    f.write("    DW {}\n".format(cmd[1]))
 
             f.write("\n\n")
 
@@ -1229,6 +1237,7 @@ def produce_gfx(cfg):
 if __name__ == "__main__":
     # produce_data(os.path.join("content", "samplecontent.cfg"))
     cfgname = os.path.join("..", "resources", "terraforminggamecontent.cfg")
+    #cfgname = os.path.join("..", "resources", "penguingamecontent.cfg")
 
     cfg = ConfigParser()
     cfg.optionxform = str
@@ -1258,6 +1267,7 @@ if __name__ == "__main__":
                 itemcount += 1
         max_itemcount = max(itemcount, max_itemcount)
     print("Text content in total: {}".format(len("".join(all_texts.values()))))
+    print("Words: {}".format(len((" ".join(all_texts.values())).split())))
     for i, cfg in enumerate(cfgs):
         print(f":::: Processing file {cfg_files[i]})")
         produce_gfx(cfg)

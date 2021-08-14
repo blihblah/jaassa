@@ -4,6 +4,7 @@
 RenderLocationViewport:
         ;; Reset the view to black for redrawing.
 		call ResetView
+		call PlayMovementSound
 		ld hl, (PLAYER_LOCATION)
 		inc hl
 		inc hl

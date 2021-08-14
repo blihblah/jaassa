@@ -1,6 +1,8 @@
 SCRIPT StartChapter2:
     LONGTEXT ChapterIntro_LT
     WAITFORFIRE
+    LONGTEXT ChapterIntro2_LT
+    WAITFORFIRE
     LOCATIONTEXTEND
 
 SCRIPT DefaultEntryScriptChapter2:
@@ -116,6 +118,7 @@ SCRIPT ReceivePhonecall:
     SET 6 0
     SETITEMLOC PhoneInventory _LOST
     GOTO OceanLanderSeat
+    WAITFORFIRE
     LONGTEXT EndFlashback_LT
     WAITFORFIRE
     LONGTEXT FallingDown_LT
@@ -175,8 +178,6 @@ SCRIPT TalkAboutMood:
     SET 10 1
     TEXTEND TalkAboutMood
 SCRIPT TalkToDaveShip:
-    TEXT TalkToDaveShip
-    WAITFORFIRE
     GOEND DaveShip
 
 
@@ -195,14 +196,15 @@ SCRIPT LookHillsideSample:
 SCRIPT LookShoreSample:
     TEXTEND LookShoreSample
 SCRIPT StartComputer:
-    END
-SCRIPT LeaveComputerLab:
+    TEXTEND ExamineComputer
+
+SCRIPT CheckAnalysisDone:
     ISSTATELEQ 7 1
-    IFTRUE GoShoreAirlock
+    IFTRUE PassCh2
     ISSTATELEQ 8 1
-    IFTRUE GoShoreAirlock
+    IFTRUE PassCh2
     ISSTATELEQ 9 1
-    IFTRUE GoShoreAirlock
+    IFTRUE PassCh2
     SET 7 0
     SET 8 0
     SET 9 0
@@ -211,7 +213,18 @@ SCRIPT LeaveComputerLab:
     SET 1 2
     LONGTEXT SampleAnalysisFinished
     WAITFORFIRE
+    END
+
+SCRIPT PassCh2:
+
+    END
+
+SCRIPT LeaveComputerLab:
     GOEND ShoreAirlock
+
+SCRIPT NonsensicalUse:
+    TEXTEND NonsensicalUse
+
 
 SCRIPT UseFlatsSample:
     ISOBJECT SampleAnalyser
@@ -231,21 +244,21 @@ SCRIPT AnalyseFlatsSample:
     LONGTEXT AnalyseFlatsSample
     WAITFORFIRE
     SET 7 2
-    END
+    JUMP CheckAnalysisDone
 
 SCRIPT AnalyseHillsideSample:
     SETITEMLOC HillsideSample _LOST
     LONGTEXT AnalyseHillsideSample
     WAITFORFIRE
     SET 8 2
-    END
+    JUMP CheckAnalysisDone
 
 SCRIPT AnalyseShoreSample:
     SETITEMLOC ShoreSample _LOST
     LONGTEXT AnalyseShoreSample
     WAITFORFIRE
     SET 9 2
-    END
+    JUMP CheckAnalysisDone
 
 
 SCRIPT ExamineLana:
@@ -283,12 +296,18 @@ SCRIPT LookAntenna:
 SCRIPT LookSocket1:
     TEXTEND LookSocket1
 SCRIPT LookSocket2:
-    TEXTEND LookSocket2
+    TEXTEND LookSocket1
 SCRIPT LookSocket3:
-    TEXTEND LookSocket3
+    TEXTEND LookSocket1
 SCRIPT LookSocket4:
-    TEXTEND LookSocket4
+    TEXTEND LookSocket1
 SCRIPT PutAntennaDown:
+    ISLOC Transmitter
+    IFTRUE PutAntennaReallyDown
+    JUMP NonsensicalUse
+
+
+SCRIPT PutAntennaReallyDown:
     SETITEMLOC Antenna_carried _LOST
     SETITEMLOC Antenna_installed Transmitter
     SETITEMLOC Wire1 Transmitter
@@ -385,55 +404,98 @@ SCRIPT GoHillsideBase:
     GOEND HillsideWithBase
 SCRIPT RoverToShore:
     GOEND Shore
+SCRIPT LookRover:
+    TEXTEND LookRover
 SCRIPT TakeAntenna:
     SETITEMLOC Antenna_inside _LOST
     TAKE Antenna_carried
     TEXTEND TakeAntenna
 
-SCRIPT UseWire1:
+SCRIPT WrongWire1:
     TEXT ConnectWire1
-    WAITFORFIRE
+    SET 2 0
+    JUMP IsAntennaFixed
+
+SCRIPT WrongWire2:
+    TEXT ConnectWire2
+    SET 3 0
+    JUMP IsAntennaFixed
+
+SCRIPT WrongWire3:
+    TEXT ConnectWire3
+    SET 4 0
+    JUMP IsAntennaFixed
+
+SCRIPT WrongWire4:
+    TEXT ConnectWire4
+    SET 5 0
+    JUMP IsAntennaFixed
+
+
+SCRIPT UseWire1:
+    ISOBJECT Socket2
+    IFTRUE WrongWire1
+    ISOBJECT Socket3
+    IFTRUE WrongWire1
+    ISOBJECT Socket4
+    IFTRUE WrongWire1
     ISOBJECT Socket1
     IFTRUE RightWiring1
-    SET 2 0
-    END
+    TEXTEND NonsensicalUse
 
 SCRIPT UseWire2:
-    TEXT ConnectWire2
-    WAITFORFIRE
     ISOBJECT Socket2
+    IFTRUE WrongWire2
+    ISOBJECT Socket1
+    IFTRUE WrongWire2
+    ISOBJECT Socket4
+    IFTRUE WrongWire2
+    ISOBJECT Socket3
     IFTRUE RightWiring2
     SET 3 0
     END
 SCRIPT UseWire3:
-    TEXT ConnectWire3
-    WAITFORFIRE
     ISOBJECT Socket3
+    IFTRUE WrongWire3
+    ISOBJECT Socket1
+    IFTRUE WrongWire3
+    ISOBJECT Socket4
+    IFTRUE WrongWire3
+    ISOBJECT Socket2
     IFTRUE RightWiring3
     SET 4 0
     END
 SCRIPT UseWire4:
-    TEXT ConnectWire4
-    WAITFORFIRE
+    ISOBJECT Socket2
+    IFTRUE WrongWire4
+    ISOBJECT Socket1
+    IFTRUE WrongWire4
+    ISOBJECT Socket3
+    IFTRUE WrongWire4
     ISOBJECT Socket4
     IFTRUE RightWiring4
     SET 5 0
     END
 
 SCRIPT RightWiring1:
+    TEXT ConnectWire1
     SET 2 1
     JUMP IsAntennaFixed
 SCRIPT RightWiring2:
+    TEXT ConnectWire2
     SET 3 1
     JUMP IsAntennaFixed
 SCRIPT RightWiring3:
+    TEXT ConnectWire3
     SET 4 1
     JUMP IsAntennaFixed
 SCRIPT RightWiring4:
+    TEXT ConnectWire4
     SET 5 1
     JUMP IsAntennaFixed
 
 SCRIPT IsAntennaFixed:
+    WAITFORFIRE
     ISSTATE 2 0
     IFTRUE AntennaStillBroken
     ISSTATE 3 0
@@ -443,20 +505,17 @@ SCRIPT IsAntennaFixed:
     ISSTATE 5 0
     IFTRUE AntennaStillBroken
     SET 6 1
-    SET 2 0
-    SET 3 0
-    SET 4 0
-    SET 5 0
     TEXT AntennaNowFixed
     WAITFORFIRE
     JUMP EndChapter2
 
 SCRIPT EnterAirlock:
     TEXT EnterAirlock
+    WAITFORFIRE
     GOEND ShoreAirlock
 
 SCRIPT GetUpFromLanderSeat:
-    TEXT GetUpFromLanderSeat
+    LONGTEXT GetUpFromLanderSeat
     WAITFORFIRE
 
     GOEND ShoreApproach
