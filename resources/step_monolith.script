@@ -1,0 +1,1543 @@
+######
+# STATE VARIABLES:
+# 1 -- player's task list
+#      0 = go to mess hall
+#      1 = fix air leak in the probe bay
+#      2 = analyse planet scan results
+#      3 = prepare and launch dispersal probes
+#      4 = meeting at mess hall
+#      5 = prepare lander and supplies for planetfall
+# 2 -- probe bay pressurized
+#      0 = No
+#      1 = Ready for repressurisation
+#      2 = Yes
+# 3 -- analysis
+#      0 = results not read
+#      1 = results read
+# 4 -- quiz answers right
+#      0 = something was wrong
+#      1 = first question right
+#      2 = second question right
+#      3 = third question right
+#      4 = all questions right
+# 5 -- probe loading steps
+#      0 = probe not opened
+#      1 = step 1 done
+#      2 = step 2 done
+#      3 = probe opened
+#      4 = biodispersal packs opened
+#      5 = packs loaded
+#      6 = closing step 1 done
+#      7 = closing step 2 done
+#      8 = closing step 3 done
+#      9 = probe moved for launch
+# 6 -- is the spacesuit worn?
+
+SCRIPT StartGame:
+    ISSTATE 15 1
+    IFTRUE DefaultEntryScript
+    SET 15 1
+    LONGTEXT Intro
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT DefaultEntryScript:
+    LOCATIONTEXTEND
+
+SCRIPT GoProbeBay:
+    ISSTATE 2 2
+    IFTRUE EnterProbeBay
+    TEXTEND CannotEnterProbeBay
+
+SCRIPT EnterProbeBay:
+    GOEND ProbeBay
+
+SCRIPT GoStorageBay:
+    GOEND StorageBay
+
+SCRIPT GoMesshall:
+    GOEND Messhall
+
+SCRIPT GoAirlock:
+    GOEND Airlock
+
+SCRIPT EntranceMesshall:
+    ISSTATE 1 0
+    IFTRUE EntranceMesshall_0
+    ISSTATE 1 4
+    IFTRUE EntranceMesshall_Probelaunch
+    LOCATIONTEXTEND
+
+SCRIPT EntranceMesshall_Probelaunch:
+    LONGTEXT EntranceMesshall_Probelaunch
+    WAITFORFIRE
+    SET 1 5
+    LONGTEXT Landing_1
+    WAITFORFIRE
+    LONGTEXT Landing_2
+    WAITFORFIRE
+    LONGTEXT Landing_3
+    WAITFORFIRE
+    LONGTEXT Landing_4
+    WAITFORFIRE
+    LONGTEXT Landing_LAST
+    WAITFORFIRE
+
+    SET 0 0
+    SET 1 0
+    SET 2 0
+    SET 3 0
+    SET 4 0
+    SET 5 0
+    SET 6 0
+    SET 7 0
+    SET 8 0
+    SET 9 0
+    SET 10 0
+    SET 11 0
+    SET 12 0
+    SET 13 0
+    SET 14 0
+    SET 15 0
+    SETITEMLOC Commpad _LOST
+    GOEND landerseat
+    END
+
+SCRIPT EntranceMesshall_0:
+    LONGTEXT Meeting
+    SET 1 1
+    END
+
+SCRIPT GoScienceBay:
+    GOEND ScienceBay
+
+SCRIPT GoHallway:
+    GOEND Hallway
+
+SCRIPT GoHallwayFromAirlock:
+    ISSTATE 6 1
+    IFTRUE NoIndoorsSpacesuit
+    GOEND Hallway
+
+SCRIPT NoIndoorsSpacesuit:
+    TEXTEND NoIndoorsSpacesuit
+
+SCRIPT GoCryobay:
+    GOEND CryoBay
+
+SCRIPT GoUpCryobay:
+    TAKE Commpad
+    TEXT TakeCommpad
+    WAITFORFIRE
+    GOEND CryoBay
+
+SCRIPT EntranceProbeBay:
+    LOCATIONTEXTEND
+
+
+#####
+# Player's displayed task list
+
+SCRIPT LookCommpad:
+    TEXTEND LookCommpad
+
+SCRIPT ReadTask:
+    ISSTATE 1 0
+    IFTRUE ReadTask_0
+    ISSTATE 1 1
+    IFTRUE ReadTask_1
+    ISSTATE 1 2
+    IFTRUE ReadTask_2
+    ISSTATE 1 3
+    IFTRUE ReadTask_3
+    ISSTATE 1 4
+    IFTRUE ReadTask_4
+    END
+
+SCRIPT ReadTask_0:
+    TEXTEND LookAtComputerDisplay_Step0
+
+SCRIPT ReadTask_1:
+    TEXTEND LookAtComputerDisplay_Step1
+
+SCRIPT ReadTask_2:
+    TEXTEND LookAtComputerDisplay_Step2
+
+SCRIPT ReadTask_3:
+    TEXTEND LookAtComputerDisplay_Step3
+
+SCRIPT ReadTask_4:
+    TEXTEND LookAtComputerDisplay_Step4
+
+
+#####
+# QUEST 1: Fix the probebay.
+
+# Spacesuit scripts.
+SCRIPT WearSpacesuit:
+    SETITEMLOC Spacesuit_wall _LOST
+    TAKE Spacesuit_worn
+    SET 6 1
+    TEXTEND WearSpacesuit
+SCRIPT RemoveSpacesuit:
+    ISLOC Airlock
+    IFTRUE RemoveSpacesuit_OK
+    TEXTEND RemoveSpacesuit_BadIdea
+
+SCRIPT RemoveSpacesuit_OK:
+    SETITEMLOC Spacesuit_worn _LOST
+    SETITEMLOC Spacesuit_wall Airlock
+    SET 6 0
+    TEXTEND RemovedSpacesuit
+
+# Sealant scripts
+SCRIPT UseSealantOn:
+    ISOBJECT HullBreach
+    IFTRUE FixBreach
+    TEXTEND BadUseOnObject
+
+SCRIPT LookBreach:
+    TEXTEND BreachUnfixed
+
+SCRIPT FixBreach:
+    SETITEMLOC HullBreach _LOST
+    SETITEMLOC Sealant _LOST
+    SET 2 1
+    TEXTEND SealingBreach
+
+# Repressurisation lever
+SCRIPT LookRepressurisationLever:
+    TEXTEND LookRepressurisationLever
+
+
+SCRIPT PullRepressurisationLever:
+    ISSTATE 2 0
+    IFTRUE CannotRepressuriseProbeBay
+    ISSTATE 2 1
+    IFTRUE RepressuriseProbeBay
+    TEXTEND ProbeBayAlreadyPressurised
+
+SCRIPT CannotRepressuriseProbeBay:
+    TEXTEND CannotRepressuriseProbeBay
+
+SCRIPT RepressuriseProbeBay:
+    SET 2 2
+    SET 1 2
+    TEXTEND RepressuriseProbeBay
+
+#####
+# QUEST 2: Analyse scans
+# Read analysis scans on display,
+# then read up on alternatives. Player has to calculate the correct answer.
+#
+
+SCRIPT ReadScienceLabComputer:
+    ISSTATE 2 2
+    IFTRUE OpenScienceComputer
+    TEXTEND AutomatedAnalysisNotRunning
+
+SCRIPT OpenScienceComputer:
+    TEXT OpenScienceComputer
+    WAITFORFIRE
+    GOEND ComputerMain
+
+SCRIPT AutoAnalysisNotYetDone:
+    TEXTEND AutoAnalysisNotYetDone
+
+SCRIPT DisplayAnalysisResults:
+    ISSTATELEQ 1 1
+    IFTRUE AutoAnalysisNotYetDone
+    LONGTEXT ScanAnalysisResults
+    SET 3 1
+    END
+
+SCRIPT AnalysisAlreadyDone:
+    TEXTEND AnalysisAlreadyDone
+
+SCRIPT PromptToReadAnalysisFirst:
+    TEXTEND PromptToReadAnalysisFirst
+
+
+SCRIPT ReadOnEarthWater:
+    LONGTEXT EarthWater
+    END
+SCRIPT ReadOnEarthAtmosphere:
+    LONGTEXT EarthAtmosphere
+    END
+SCRIPT ReadOnEarthClimate:
+    LONGTEXT EarthClimate
+    END
+SCRIPT ReadOnEarthSoil:
+    LONGTEXT EarthSoil
+    END
+
+
+SCRIPT EnterWater:
+    LONGTEXT locationQuizWater
+    END
+SCRIPT EnterSoil:
+    LONGTEXT locationSoilQuiz
+    END
+SCRIPT EnterAtmosphere:
+    LONGTEXT locationQuizAtmosphere
+    END
+SCRIPT EnterClimate:
+    LONGTEXT locationQuizClimate
+    END
+
+
+SCRIPT ChooseStartQuiz:
+    ISSTATE 3 0
+    IFTRUE PromptToReadAnalysisFirst
+    ISSTATE 4 4
+    IFTRUE AnalysisAlreadyDone
+    SET 4 0
+    GOEND QuizWater
+
+SCRIPT AnalysisNotRight:
+    SET 4 0
+    TEXT AnalysisWentWrong
+    WAITFORFIRE
+    GOEND ComputerMain
+
+SCRIPT CorrectWaterAnswer:
+    SET 4 1
+    TEXT CorrectWaterAnswer
+    WAITFORFIRE
+    GOEND QuizAtmosphere
+
+SCRIPT CorrectAtmosphereAnswer:
+    TEXT CorrectAtmosphereAnswer
+    WAITFORFIRE
+    ISSTATE 4 1
+    IFTRUE AllRightAtmosphere
+    SET 4 0
+    GOEND QuizClimate
+
+SCRIPT AllRightAtmosphere:
+    SET 4 2
+    GOEND QuizClimate
+
+SCRIPT CorrectClimateAnswer:
+    TEXT CorrectClimateAnswer
+    WAITFORFIRE
+    ISSTATE 4 2
+    IFTRUE AllRightClimate
+    SET 4 0
+    GOEND QuizSoil
+
+SCRIPT AllRightClimate:
+    SET 4 3
+    GOEND QuizSoil
+
+
+SCRIPT CorrectSoilAnswer:
+    TEXT CorrectSoilAnswer
+    WAITFORFIRE
+    ISSTATE 4 3
+    IFTRUE AnalysisCompleted
+    ISSTATE 4 0
+    IFTRUE AnalysisNotRight
+    END
+
+SCRIPT AnalysisCompleted:
+    SET 4 4
+    SET 1 3
+    LONGTEXT OwnAnalysisResults
+    WAITFORFIRE
+    GOEND ScienceBay
+
+
+SCRIPT WrongWaterAnswer:
+    SET 4 0
+    TEXT WrongWaterAnswer
+    WAITFORFIRE
+    GOEND QuizAtmosphere
+
+
+SCRIPT WrongAtmosphereAnswer:
+    SET 4 0
+    TEXT WrongAtmosphereAnswer
+    WAITFORFIRE
+    GOEND QuizClimate
+
+SCRIPT WrongClimateAnswer:
+    SET 4 0
+    TEXT WrongClimateAnswer
+    WAITFORFIRE
+    GOEND QuizSoil
+
+SCRIPT WrongSoilAnswer:
+    SET 4 0
+    TEXT WrongSoilAnswer
+    WAITFORFIRE
+    JUMP AnalysisNotRight
+
+
+SCRIPT LookOutsideAirlock:
+    TEXTEND LookOutsideAirlock
+
+SCRIPT LookAirlockOutside:
+    TEXTEND LookAirlockOutside
+
+SCRIPT LookComputer:
+    TEXTEND LookComputer
+
+SCRIPT TakeSealant:
+    TAKE Sealant
+    SETITEMLOC Sealant_shelf _LOST
+    TEXTEND TakeSealant
+
+SCRIPT GoComputerMain:
+    #TEXT OpenComputer
+    #WAITFORFIRE
+    GOEND ComputerMain
+
+SCRIPT GoOutsideProbeBay:
+    TEXT GoOutsideProbeBay
+    WAITFORFIRE
+    GOEND OutsideProbeBay
+
+SCRIPT GoOutsideAirlockFromInside:
+    ISSTATE 6 1
+    IFTRUE GoThroughAirlockOutside
+    TEXT OutsideWithoutSpacesuitBadIdea
+    END
+
+SCRIPT GoThroughAirlockOutside:
+    TEXT GoOutsideAirlock
+    WAITFORFIRE
+    GOEND OutsideAirlock
+
+SCRIPT GoOutsideAirlock:
+    GOEND OutsideAirlock
+
+SCRIPT LookOutsideProbeBay:
+    TEXTEND LookOutsideProbeBay
+
+SCRIPT GoComputerLibrary:
+    GOEND ComputerLibrary
+
+
+
+#####
+# QUEST 3: Prepare distribution
+# Need to ask for help (a sidequest!)
+
+# 1. Open the three probes.
+# 2. Fill the small parts.
+
+SCRIPT ReadProbeOpeningSteps:
+    LONGTEXT ProbeOpeningGuide
+    END
+
+SCRIPT OpenProbe_Step1:
+    ISSTATE 5 0
+    IFTRUE CanOpenProbe_Step1
+    ISSTATE 5 8
+    IFTRUE CannotReopen_Probe
+    TEXTEND FailedOpen_Step1
+
+SCRIPT CannotReopen_Probe:
+    TEXTEND CannotReopen_Probe
+
+SCRIPT OpenProbe_Step2:
+    ISSTATE 5 1
+    IFTRUE CanOpenProbe_Step2
+    TEXTEND FailedOpen_Step2
+
+SCRIPT OpenProbe_Step3:
+    ISSTATE 5 2
+    IFTRUE CanOpenProbe_Step3
+    TEXTEND FailedOpen_Step3
+
+SCRIPT CanOpenProbe_Step1:
+    SET 5 1
+    SETITEMLOC ProbeWires_Attached Probe
+    SETITEMLOC ProbeScrew_Closed Probe
+    TEXTEND OpenedProbe_Step1
+SCRIPT CanOpenProbe_Step2:
+    SET 5 2
+    SETITEMLOC ProbeWires_Attached _LOST
+    SETITEMLOC ProbeWires_Detached Probe
+    TEXTEND OpenedProbe_Step2
+SCRIPT CanOpenProbe_Step3:
+    SET 5 3
+    SETITEMLOC ProbeScrew_Closed _LOST
+    TAKE ProbeScrew_Inventory
+
+    TEXTEND OpenedProbe_Step3
+
+# 2. Fill the small sections.
+SCRIPT OpenDispersalPacks:
+    ISSTATE 5 3
+    IFTRUE OpenDispersalPacks_OK
+    ISSTATELEQ 5 3
+    IFTRUE OpenDispersalPacks_TooEarly
+    TEXTEND OpenDispersalPacks_AlreadyDone
+
+SCRIPT OpenDispersalPacks_OK:
+    SET 5 4
+    SETITEMLOC BioDispersalPack_store ProbeBay
+    END
+
+SCRIPT OpenDispersalPacks_TooEarly:
+    TEXTEND OpenDispersalPacks_TooEarly
+
+SCRIPT TakeBiodispersalPack:
+    TAKE BioDispersalPack
+    SETITEMLOC BioDispersalPack_store _LOST
+    TEXTEND TakeBiodispersalPack
+
+SCRIPT LookBiodispersalPack:
+    TEXTEND LookBiodispersalPack
+
+SCRIPT ProbeNotOpenedYet:
+    TEXTEND ProbeNotOpenedYet
+
+SCRIPT LoadBiodispersalPack:
+    ISSTATELEQ 5 2
+    IFTRUE ProbeNotOpenedYet
+    ISOBJECT ProbeZoomed
+    IFTRUE LoadBiodispersalPackReally
+    ISOBJECT ProbeHatch
+    IFTRUE LoadBiodispersalPackReally
+    TEXTEND BadUseOnObject
+
+SCRIPT LoadBiodispersalPackReally:
+    SETITEMLOC BioDispersalPack _LOST
+    SET 5 5
+    TEXTEND LoadBiodispersalPack
+
+SCRIPT CloseProbe_Step3:
+    ISSTATE 5 5
+    IFTRUE CanCloseProbe_Step3
+    ISSTATELEQ 5 5
+    IFTRUE CannotCloseProbeYet_Step3
+    TEXTEND CannotCloseProbeAgain_Step3
+
+SCRIPT CannotCloseProbeYet_Step3:
+    TEXTEND CannotCloseProbeYet_Step3
+
+SCRIPT CanCloseProbe_Step3:
+    SET 5 6
+    SETITEMLOC ProbeScrew_Closed Probe
+    SETITEMLOC ProbeScrew_Inventory _LOST
+    TEXTEND CanCloseProbe_Step3
+
+SCRIPT CloseProbe_Step2:
+    ISSTATE 5 6
+    IFTRUE CanCloseProbe_Step2
+    ISSTATELEQ 5 6
+    IFTRUE CannotCloseProbeYet_Step2
+    TEXTEND CannotCloseProbeAgain_Step2
+
+SCRIPT CannotCloseProbeYet_Step2:
+    TEXTEND CannotCloseProbeYet_Step2
+
+SCRIPT CanCloseProbe_Step2:
+    SET 5 7
+    TEXTEND CanCloseProbe_Step2
+
+SCRIPT CloseProbe_Step1:
+    ISSTATE 5 7
+    IFTRUE CanCloseProbe_Step1
+    ISSTATE 5 0
+    IFTRUE CannotCloseClosedHatch
+    ISSTATELEQ 5 7
+    IFTRUE CannotCloseProbeYet_Step1
+    JUMP CannotCloseClosedHatch
+
+SCRIPT CannotCloseClosedHatch:
+    TEXTEND CannotCloseClosedHatch
+
+SCRIPT CannotCloseProbeYet_Step1:
+    TEXTEND CannotCloseProbeYet_Step1
+
+SCRIPT CanCloseProbe_Step1:
+    SET 5 8
+    SET 1 4
+    SETITEMLOC ProbeScrew_Closed _LOST
+    SETITEMLOC ProbeWires_Attached _LOST
+    TEXTEND CanCloseProbe_Step1
+
+SCRIPT FailedClose_Step3:
+    TEXTEND FailedClose_Step3
+
+SCRIPT FailedClose_Step2:
+    TEXTEND FailedClose_Step2
+
+SCRIPT FailedClose_Step1:
+    TEXTEND FailedClose_Step1
+
+;SCRIPT ProbeReady:
+;    SET 1 4
+;    SET 5 9
+;    LONGTEXT ProbeReady
+;    END
+
+
+
+####
+# FILLER
+
+SCRIPT LookSven:
+    TEXTEND LookSven
+
+SCRIPT TalkSven:
+    TEXTEND TalkSven
+
+SCRIPT TalkKim:
+    TEXTEND TalkKim
+
+SCRIPT LookKim:
+    TEXTEND LookKim
+
+SCRIPT TalkAlejandro:
+    TEXTEND TalkAlejandro
+
+SCRIPT LookAlejandro:
+    TEXTEND LookAlejandro
+
+SCRIPT LookCryopod:
+    TEXTEND LookCryopod
+SCRIPT LookSealant:
+    TEXTEND LookSealant
+SCRIPT LookSpacesuit:
+    TEXTEND LookSpacesuit
+
+SCRIPT DontOpenProbeYet:
+    TEXTEND DontOpenProbeYet
+
+SCRIPT OpenProbe:
+    ISSTATELEQ 1 2
+    IFTRUE DontOpenProbeYet
+    GOEND Probe
+
+SCRIPT ScrewProbeScrew:
+    END
+SCRIPT LookProbeHatch:
+    LONGTEXT LookProbeHatch
+    END
+SCRIPT LookProbeScrewCarried:
+    TEXTEND LookProbeScrewCarried
+SCRIPT LookProbe:
+    TEXTEND LookProbe
+SCRIPT OpenPayloadShelf:
+    ISSTATE 7 1
+    IFTRUE ShelfAlreadyOpen
+    SET 7 1
+    SETITEMLOC BioDispersalPack_store ProbeBay
+    TEXTEND OpenPayloadShelf
+    END
+SCRIPT LookPayloadShelf:
+    ISSTATE 7 1
+    IFTRUE LookOpenPayloadShelf
+    TEXTEND LookPayloadShelf
+
+SCRIPT LookProbeWires:
+    TEXTEND LookProbeWires
+SCRIPT LookProbeScrew:
+    TEXTEND LookProbeScrew
+SCRIPT LookOpenPayloadShelf:
+    TEXTEND LookOpenPayloadShelf
+SCRIPT ShelfAlreadyOpen:
+    TEXTEND ShelfAlreadyOpen
+
+
+#---
+
+SCRIPT StartChapter2:
+    LONGTEXT ChapterIntro_LT
+    WAITFORFIRE
+    LONGTEXT ChapterIntro2_LT
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT DefaultEntryScriptChapter2:
+    LOCATIONTEXTEND
+
+### PART 1
+
+SCRIPT LookUpHome:
+    TEXTEND LookUpHome
+
+SCRIPT StartFlashback:
+    LONGTEXT StartFlashback
+    WAITFORFIRE
+    GOEND Bedroom
+
+SCRIPT TakeBreakfast:
+    TAKE BreakfastInventory
+    SETITEMLOC Breakfast _LOST
+    SET 2 1
+    TEXTEND TakeBreakfast
+
+SCRIPT TakePhone:
+    TAKE PhoneInventory
+    SETITEMLOC Phone _LOST
+    SET 3 1
+    TEXTEND TakePhone
+    END
+
+SCRIPT TakeShower:
+    SET 4 1
+    TEXTEND TakeShower
+
+SCRIPT ExamineStopChart:
+    ISSTATE 5 0
+    IFTRUE ReadStopChart1
+    ISSTATE 5 1
+    IFTRUE ReadStopChart2
+    ISSTATE 5 2
+    IFTRUE ReadStopChart3
+    TEXT ReadStopChart4
+    WAITFORFIRE
+    GOEND Office
+
+SCRIPT ReadStopChart1:
+    SET 5 1
+    SETITEMLOC BreakfastInventory _LOST
+    TEXTEND ReadStopChart1
+SCRIPT ReadStopChart2:
+    SET 5 2
+    TEXTEND ReadStopChart2
+SCRIPT ReadStopChart3:
+    SET 5 3
+    TEXTEND ReadStopChart3
+
+SCRIPT GoBathroom:
+    GOEND Bathroom
+SCRIPT GoBedroom:
+    GOEND Bedroom
+SCRIPT GoLivingroom:
+    GOEND Livingroom
+SCRIPT CommuteToWork:
+    ISSTATE 6 0
+    IFTRUE DressFirst
+    ISSTATE 2 0
+    IFTRUE RememberBreakfast
+    ISSTATE 3 0
+    IFTRUE RememberPhone
+    LONGTEXT LeaveToWork
+    WAITFORFIRE
+    GOEND Commute
+SCRIPT DressFirst:
+    TEXTEND DressFirst
+SCRIPT RememberBreakfast:
+    TEXTEND RememberBreakfast
+SCRIPT RememberPhone:
+    TEXTEND RememberPhone
+
+SCRIPT EatBreakfast:
+    TEXTEND EatBreakfast
+
+SCRIPT LookAtDoor:
+    TEXTEND LookAtDoor
+
+SCRIPT LookBreakfast:
+    TEXTEND LookBreakfast
+SCRIPT LookMirror:
+    TEXTEND LookMirror
+SCRIPT LookPhone:
+    TEXTEND LookPhone
+SCRIPT LookShower:
+    TEXTEND LookShower
+SCRIPT LookStopChart:
+    TEXTEND LookStopChart
+
+SCRIPT PutOnWorkClothes:
+    ISSTATE 4 0
+    IFTRUE ShowerFirst
+    SET 6 1
+    SETITEMLOC Clothes _LOST
+    TEXTEND PutOnWorkClothes
+
+SCRIPT ShowerFirst:
+    TEXTEND ShowerFirst
+
+SCRIPT ReceivePhonecall:
+    LONGTEXT ReceivePhonecall_LT1
+    WAITFORFIRE
+    SET 1 0
+    SET 2 0
+    SET 3 0
+    SET 4 0
+    SET 5 0
+    SET 6 0
+    SETITEMLOC PhoneInventory _LOST
+    GOTO OceanLanderSeat
+    WAITFORFIRE
+    LONGTEXT EndFlashback_LT
+    WAITFORFIRE
+    LONGTEXT FallingDown_LT
+    WAITFORFIRE
+    LONGTEXT SplashDownCountdown_LT
+    WAITFORFIRE
+    LONGTEXT SplashDown_LT
+    WAITFORFIRE
+    LONGTEXT ReachingSurface_LT
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+
+## PART 2
+
+# State 1 : has the base been built?
+#     0 = no
+#     1 = yes
+# State 2 : Is wire 1 OK?
+# State 3 : Is wire 2 OK?
+# State 4 : Is wire 3 OK?
+# State 5 : Is wire 4 OK?
+# State 6 : Is antenna OK?
+
+SCRIPT GoShoreApproach:
+    ISSTATE 7 0
+    IFTRUE GoReallyShoreApproach
+    ISSTATE 8 0
+    IFTRUE GoReallyShoreApproach
+    ISSTATE 9 0
+    IFTRUE GoReallyShoreApproach
+    ISSTATE 10 0
+    IFTRUE GoReallyShoreApproach
+    SET 1 0
+    SET 2 0
+    SET 3 0
+    SET 4 0
+    SET 5 0
+    SET 6 0
+    SET 7 0
+    SET 8 0
+    SET 9 0
+    SET 10 0
+    LONGTEXT TimelapseGoShore
+    WAITFORFIRE
+    GOEND ShoreAirlock
+
+SCRIPT GoReallyShoreApproach:
+    GOEND ShoreApproach
+
+SCRIPT LookDaveShip:
+    TEXTEND LookDaveShip
+SCRIPT TalkAboutEarth:
+    SET 9 1
+    TEXTEND TalkAboutEarth
+SCRIPT TalkAboutMood:
+    SET 10 1
+    TEXTEND TalkAboutMood
+SCRIPT TalkToDaveShip:
+    GOEND DaveShip
+
+
+SCRIPT ExamineAnalyser:
+    TEXTEND ExamineAnalyser
+SCRIPT GoComputerLab:
+    GOEND ComputerLab
+SCRIPT GoShoreAirlock:
+    GOEND ShoreAirlock
+SCRIPT LookAnalyser:
+    TEXTEND LookAnalyser
+SCRIPT LookFlatsSample:
+    TEXTEND LookFlatsSample
+SCRIPT LookHillsideSample:
+    TEXTEND LookHillsideSample
+SCRIPT LookShoreSample:
+    TEXTEND LookShoreSample
+SCRIPT StartComputer:
+    TEXTEND ExamineComputer
+
+SCRIPT CheckAnalysisDone:
+    ISSTATELEQ 7 1
+    IFTRUE PassCh2
+    ISSTATELEQ 8 1
+    IFTRUE PassCh2
+    ISSTATELEQ 9 1
+    IFTRUE PassCh2
+    SET 7 0
+    SET 8 0
+    SET 9 0
+    SET 10 1
+    # Build the base.
+    SET 1 2
+    LONGTEXT SampleAnalysisFinished
+    WAITFORFIRE
+    END
+
+SCRIPT PassCh2:
+
+    END
+
+SCRIPT LeaveComputerLab:
+    GOEND ShoreAirlock
+
+SCRIPT NonsensicalUse:
+    TEXTEND NonsensicalUse
+
+
+SCRIPT UseFlatsSample:
+    ISOBJECT SampleAnalyser
+    IFTRUE AnalyseFlatsSample
+    TEXTEND NonsensicalUse
+SCRIPT UseHillsideSample:
+    ISOBJECT SampleAnalyser
+    IFTRUE AnalyseHillsideSample
+    TEXTEND NonsensicalUse
+SCRIPT UseShoreSample:
+    ISOBJECT SampleAnalyser
+    IFTRUE AnalyseShoreSample
+    TEXTEND NonsensicalUse
+
+SCRIPT AnalyseFlatsSample:
+    SETITEMLOC FlatsSample _LOST
+    LONGTEXT AnalyseFlatsSample
+    WAITFORFIRE
+    SET 7 2
+    JUMP CheckAnalysisDone
+
+SCRIPT AnalyseHillsideSample:
+    SETITEMLOC HillsideSample _LOST
+    LONGTEXT AnalyseHillsideSample
+    WAITFORFIRE
+    SET 8 2
+    JUMP CheckAnalysisDone
+
+SCRIPT AnalyseShoreSample:
+    SETITEMLOC ShoreSample _LOST
+    LONGTEXT AnalyseShoreSample
+    WAITFORFIRE
+    SET 9 2
+    JUMP CheckAnalysisDone
+
+
+SCRIPT ExamineLana:
+    TEXTEND ExamineLana
+SCRIPT ExamineLoader:
+    TEXTEND ExamineLoader
+SCRIPT LookLana:
+    TEXTEND LookLana
+SCRIPT LookLoader:
+    TEXTEND LookLoader
+SCRIPT TalkLana:
+    TEXTEND TalkLana
+SCRIPT WearLoader:
+    TEXTEND WearLoader
+
+SCRIPT TalkAboutCrew:
+    SET 7 1
+    TEXTEND TalkAboutCrew
+SCRIPT TalkAboutStep:
+    SET 8 1
+    TEXTEND TalkAboutStep
+
+SCRIPT EnterFlatsRover:
+    GOEND Map
+SCRIPT EnterHillsideRover:
+    GOEND Map
+SCRIPT EnterShoreRover:
+    GOEND Map
+
+SCRIPT ExamineAntenna:
+    LONGTEXT ExamineAntenna
+    END
+SCRIPT LookAntenna:
+    TEXTEND LookAntenna
+SCRIPT LookSocket1:
+    TEXTEND LookSocket1
+SCRIPT LookSocket2:
+    TEXTEND LookSocket1
+SCRIPT LookSocket3:
+    TEXTEND LookSocket1
+SCRIPT LookSocket4:
+    TEXTEND LookSocket1
+SCRIPT PutAntennaDown:
+    ISLOC Transmitter
+    IFTRUE PutAntennaReallyDown
+    JUMP NonsensicalUse
+
+
+SCRIPT PutAntennaReallyDown:
+    SETITEMLOC Antenna_carried _LOST
+    SETITEMLOC Antenna_installed Transmitter
+    SETITEMLOC Wire1 Transmitter
+    SETITEMLOC Wire2 Transmitter
+    SETITEMLOC Wire3 Transmitter
+    SETITEMLOC Wire4 Transmitter
+    TEXTEND PutAntennaDown
+
+SCRIPT TalkToAbe:
+    ISSTATE 11 0
+    IFTRUE GetSampleAssignment
+    ISSTATE 10 1
+    IFTRUE NoMoreAssignments
+    TEXTEND ReminderOfTheAssignment
+
+SCRIPT ExamineAbe:
+    TEXTEND ExamineAbe
+SCRIPT LookAbe:
+    TEXTEND LookAbe
+SCRIPT NoMoreAssignments:
+    TEXTEND NoMoreAssignments
+
+
+SCRIPT GetSampleAssignment:
+    SETITEMLOC Pebbles Flats
+    SETITEMLOC Bedrock Hillside
+    SETITEMLOC Sand Shore
+    LONGTEXT SampleAssignment_LT
+    WAITFORFIRE
+    SET 11 1
+    END
+
+SCRIPT EnterBase:
+    ISSTATE 12 0
+    IFTRUE GiveAntennaAssignment
+    LOCATIONTEXTEND
+SCRIPT GiveAntennaAssignment:
+    LONGTEXT AntennaAssignment
+    SET 12 1
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT ExaminePickaxe:
+    TEXTEND ExaminePickaxe
+SCRIPT ExamineSand:
+    TEXTEND ExamineSand
+SCRIPT LookBedrock:
+    TEXTEND LookBedrock
+SCRIPT LookFlatsPebbles:
+    TEXTEND LookFlatsPebbles
+SCRIPT LookPickaxe:
+    TEXTEND LookPickaxe
+SCRIPT LookSand:
+    TEXTEND LookSand
+SCRIPT TakeFlatsSample:
+    ISSTATE 7 0
+    IFTRUE TakePebble
+    TEXTEND AlreadyTakenPebbleSample
+SCRIPT TakeSand:
+    ISSTATE 9 0
+    IFTRUE TakeSandSample
+    TEXTEND AlreadyTakenSandSample
+
+SCRIPT UsePickaxe:
+    ISOBJECT Bedrock
+    IFTRUE UsePickaxeOnBedrock
+    TEXTEND NonsensicalUse
+
+SCRIPT UsePickaxeOnBedrock:
+    ISSTATE 8 0
+    IFTRUE TakeHillsideSample
+    TEXTEND AlreadyTakenSample
+
+SCRIPT TakeHillsideSample:
+    SET 8 1
+    TAKE HillsideSample
+    TEXTEND TakeHillsideSample
+SCRIPT TakePebble:
+    SET 7 1
+    TAKE FlatsSample
+    TEXTEND TakeFlatsSample
+SCRIPT TakeSandSample:
+    SET 9 1
+    TAKE ShoreSample
+    TEXTEND TakeShoreSample
+
+SCRIPT RoverToFlats:
+    GOEND Flats
+SCRIPT RoverToHillside:
+    ISSTATE 1 2
+    IFTRUE GoHillsideBase
+    GOEND Hillside
+SCRIPT GoHillsideBase:
+    GOEND HillsideWithBase
+SCRIPT RoverToShore:
+    GOEND Shore
+SCRIPT LookRover:
+    TEXTEND LookRover
+SCRIPT TakeAntenna:
+    SETITEMLOC Antenna_inside _LOST
+    TAKE Antenna_carried
+    TEXTEND TakeAntenna
+
+SCRIPT WrongWire1:
+    TEXT ConnectWire1
+    SET 2 0
+    JUMP IsAntennaFixed
+
+SCRIPT WrongWire2:
+    TEXT ConnectWire2
+    SET 3 0
+    JUMP IsAntennaFixed
+
+SCRIPT WrongWire3:
+    TEXT ConnectWire3
+    SET 4 0
+    JUMP IsAntennaFixed
+
+SCRIPT WrongWire4:
+    TEXT ConnectWire4
+    SET 5 0
+    JUMP IsAntennaFixed
+
+
+SCRIPT UseWire1:
+    ISOBJECT Socket2
+    IFTRUE WrongWire1
+    ISOBJECT Socket3
+    IFTRUE WrongWire1
+    ISOBJECT Socket4
+    IFTRUE WrongWire1
+    ISOBJECT Socket1
+    IFTRUE RightWiring1
+    TEXTEND NonsensicalUse
+
+SCRIPT UseWire2:
+    ISOBJECT Socket2
+    IFTRUE WrongWire2
+    ISOBJECT Socket1
+    IFTRUE WrongWire2
+    ISOBJECT Socket4
+    IFTRUE WrongWire2
+    ISOBJECT Socket3
+    IFTRUE RightWiring2
+    SET 3 0
+    END
+SCRIPT UseWire3:
+    ISOBJECT Socket3
+    IFTRUE WrongWire3
+    ISOBJECT Socket1
+    IFTRUE WrongWire3
+    ISOBJECT Socket4
+    IFTRUE WrongWire3
+    ISOBJECT Socket2
+    IFTRUE RightWiring3
+    SET 4 0
+    END
+SCRIPT UseWire4:
+    ISOBJECT Socket2
+    IFTRUE WrongWire4
+    ISOBJECT Socket1
+    IFTRUE WrongWire4
+    ISOBJECT Socket3
+    IFTRUE WrongWire4
+    ISOBJECT Socket4
+    IFTRUE RightWiring4
+    SET 5 0
+    END
+
+SCRIPT RightWiring1:
+    TEXT ConnectWire1
+    SET 2 1
+    JUMP IsAntennaFixed
+SCRIPT RightWiring2:
+    TEXT ConnectWire2
+    SET 3 1
+    JUMP IsAntennaFixed
+SCRIPT RightWiring3:
+    TEXT ConnectWire3
+    SET 4 1
+    JUMP IsAntennaFixed
+SCRIPT RightWiring4:
+    TEXT ConnectWire4
+    SET 5 1
+    JUMP IsAntennaFixed
+
+SCRIPT IsAntennaFixed:
+    WAITFORFIRE
+    ISSTATE 2 0
+    IFTRUE AntennaStillBroken
+    ISSTATE 3 0
+    IFTRUE AntennaStillBroken
+    ISSTATE 4 0
+    IFTRUE AntennaStillBroken
+    ISSTATE 5 0
+    IFTRUE AntennaStillBroken
+    SET 6 1
+    TEXT AntennaNowFixed
+    WAITFORFIRE
+    JUMP EndChapter2
+
+SCRIPT EnterAirlock:
+    TEXT EnterAirlock
+    WAITFORFIRE
+    GOEND ShoreAirlock
+
+SCRIPT GetUpFromLanderSeat:
+    LONGTEXT GetUpFromLanderSeat
+    WAITFORFIRE
+
+    GOEND ShoreApproach
+
+SCRIPT GoHillsideWithBase:
+    GOEND HillsideWithBase
+
+SCRIPT GoInsideBase:
+    GOEND InsideBase
+
+SCRIPT GoTransmitter:
+    GOEND Transmitter
+SCRIPT LeaveAirlock:
+    TEXT LeaveAirlock
+    WAITFORFIRE
+    GOEND Shore
+SCRIPT AntennaStillBroken:
+    TEXT AntennaStillBroken
+    END
+
+SCRIPT TakePickaxe:
+    TAKE Pickaxe_inventory
+    SETITEMLOC Pickaxe _LOST
+    TEXTEND TakePickaxe
+
+SCRIPT EndChapter2:
+    LONGTEXT EndChapter2
+    WAITFORFIRE
+    TEXT PromptToStartChapter3
+    WAITFORFIRE
+    SET 0 0
+    SET 1 0
+    SET 2 0
+    SET 3 0
+    SET 4 0
+    SET 5 0
+    SET 6 0
+    SET 7 0
+    SET 8 0
+    SET 9 0
+    SET 10 0
+    SET 11 0
+    SET 12 0
+    SET 13 0
+    SET 14 0
+    SET 15 0
+    SETITEMLOC Pickaxe_inventory _LOST
+    GOEND homech3
+
+
+#----
+###
+# Chapter structure.
+# 1. Player is woken up from cryosleep. One other person (Dave) is around.
+# 2. Investigate the cause. The nuclear power plant is breaking down?
+# 3. Repair the antenna, find out if the generation ship is already around.
+# 4. Load up on everything. Does the rover work?
+# 5. The rover's batteries won't take the player far. After that, the player has to continue by foot towards the permanent colony.
+# 6. Some obstacle that has to be scaled. What?
+# 7. Reach the base. Game finished.
+
+
+SCRIPT StartChapter3:
+    LONGTEXT ChapterIntro3_LT_pt1
+    WAITFORFIRE
+    LONGTEXT ChapterIntro3_LT_pt2
+    WAITFORFIRE
+    LOCATIONTEXTEND
+
+SCRIPT DefaultEntryScriptCh3:
+    LOCATIONTEXTEND
+
+
+###
+# AT BASE
+# Variable 1 :
+# 1 - loader battery out
+# 2 - loader battery recharged
+# 3 - loader battery exchanged
+# 4 - rover excavated
+# 5 - rover repaired
+# 6 - transmission read
+# 7 - base shutdown
+# 8 -
+# variable 2:
+# 0 - plant status not read
+# 1 - plant status read
+# variable 3:
+# 0 - loader not oiled
+# 1 - loader oiled
+# variable 4
+# 0 - transmission not received
+# 1 - transmission received
+# variable 5
+# 0 - receiver not fixed
+# 1 - receiver fixed
+
+SCRIPT GoComputerRoom:
+    GOEND ComputerRoom
+SCRIPT GoDaveBase:
+    GOEND DaveBase
+
+SCRIPT ExamineCharger:
+    TEXTEND ExamineCharger
+SCRIPT ExamineLoaderCh3:
+    TEXTEND ExamineLoaderCh3
+SCRIPT ExamineToolkit:
+    TEXTEND ExamineToolkit
+SCRIPT LookRoverCh3:
+    TEXTEND LookRoverCh3
+SCRIPT GetOnRoverCh3:
+    TEXTEND CannotGetOnRoverYet
+SCRIPT GoCryobayCh3:
+    GOEND CryobayCh3
+SCRIPT GoHillsideBaseCh3:
+    ISSTATELEQ 1 3
+    IFTRUE CannotExitBase
+    GOEND HillsideBaseCh3
+SCRIPT CannotExitBase:
+    TEXTEND CannotExitBase
+SCRIPT GoPowerplant:
+    GOEND Powerplant
+SCRIPT GoTransmitterCh3:
+    GOEND TransmitterCh3
+SCRIPT LookBattery:
+    TEXTEND LookBattery
+SCRIPT LookCharger:
+    TEXTEND LookCharger
+SCRIPT LookLoaderCh3:
+    TEXTEND LookLoaderCh3
+SCRIPT LookToolkit:
+    TEXTEND LookToolkit
+SCRIPT OpenBatteryHatch:
+    ISSTATE 2 0
+    IFTRUE DontOpenHatchYet
+    ISSTATE 1 0
+    IFTRUE OpenLoaderHatch
+    TEXTEND BatteryHatchAlreadyOpen
+
+SCRIPT DontOpenHatchYet:
+    TEXTEND DontOpenHatchYet
+SCRIPT CannotWearLoaderBatteryEmpty:
+    TEXTEND CannotWearLoaderBatteryEmpty
+SCRIPT OpenLoaderHatch:
+    SETITEMLOC Battery_Ground InsideBaseCh3
+    SETITEMLOC BatteryHatch _LOST
+    TEXTEND OpenLoaderHatch
+
+
+SCRIPT GoComputerDesktopCh3:
+    GOEND ComputerDesktopCh3
+SCRIPT LookCommsOption:
+    ISSTATE 5 1
+    IFTRUE ReceiveTransmission
+    TEXTEND LookCommsOption
+SCRIPT LookCryoOption:
+    TEXTEND LookCryoOption
+
+
+SCRIPT ReadWarning:
+    LONGTEXT ReadWarning
+    SET 2 1
+    END
+SCRIPT TakeBattery:
+    TAKE Battery_Inventory
+    SETITEMLOC Battery_Ground _LOST
+    TEXTEND TakeBattery
+SCRIPT TakeToolkit:
+    TAKE Toolkit_Inventory
+    SETITEMLOC Toolkit _LOST
+    TEXTEND TakeToolkit
+SCRIPT UseToolkit:
+    ISSTATELEQ 1 3
+    IFTRUE PointlessUse
+    ISOBJECT RoverCh3
+    IFTRUE RepairRover
+    ISOBJECT LoaderCh3
+    IFTRUE ExtractLoaderGuts
+    ISOBJECT TransmitterElectronics
+    IFTRUE UseToolkitOnTransmitterElectronics
+    TEXTEND PointlessUse
+
+SCRIPT ExtractLoaderGuts:
+    ISSTATE 3 1
+    IFTRUE PointlessUse
+    TAKE RoverBattery
+    TAKE SpareComponents
+    SET 3 1
+    LONGTEXT ExtractLoaderGuts
+    END
+
+SCRIPT ExamineTransmitterElectronics:
+    TEXTEND ExamineTransmitterElectronics
+SCRIPT LookBatteryHatch:
+    TEXTEND LookBatteryHatch
+SCRIPT LookRoverBattery:
+    TEXTEND LookRoverBattery
+SCRIPT LookSpareComponents:
+    TEXTEND LookSpareComponents
+SCRIPT LookTransmitterElectronics:
+    ISSTATE 5 1
+    IFTRUE LookRepairedElectronics
+    TEXTEND LookTransmitterElectronics
+SCRIPT LookRepairedElectronics:
+    TEXTEND LookRepairedElectronics
+SCRIPT UseSpareComponents:
+    ISOBJECT TransmitterElectronics
+    IFTRUE RepairTransmitter
+    JUMP PointlessUse
+
+SCRIPT RepairTransmitter:
+    SET 5 1
+    SETITEMLOC SpareComponents _LOST
+    LONGTEXT RepairTransmitter_LT
+    END
+
+SCRIPT UseToolkitOnTransmitterElectronics:
+    ISSTATE 5 1
+    IFTRUE PointlessUse
+    LONGTEXT UseToolkitOnTransmitterElectronics
+    END
+
+SCRIPT PointlessUse:
+    TEXTEND PointlessUse
+SCRIPT RepairRover:
+    ISSTATE 1 4
+    IFTRUE DoRepairRover
+    TEXTEND PointlessUse
+SCRIPT DoRepairRover:
+    SET 1 5
+    TEXTEND RepairRover
+
+SCRIPT ReceiveTransmission:
+    LONGTEXT ReceiveTransmission
+    WAITFORFIRE
+    SET 4 1
+    LONGTEXT PlansAfterTransmission
+    END
+
+SCRIPT ShutdownPowerplant:
+    LONGTEXT Shutdown_1
+    WAITFORFIRE
+    LONGTEXT Shutdown_2
+    WAITFORFIRE
+    LONGTEXT LeaveTheBase
+    WAITFORFIRE
+    GOEND FlatsCh3
+
+
+###
+
+SCRIPT TalkAboutGenerationShip:
+    LONGTEXT TalkAboutGenerationShip
+    END
+SCRIPT TalkAboutGenerator:
+    LONGTEXT TalkAboutGenerator
+    END
+SCRIPT TalkAboutOthers:
+    LONGTEXT TalkAboutOthers
+    END
+SCRIPT UseBattery:
+    ISOBJECT LoaderCh3
+    IFTRUE UseBatteryOnLoader
+    ISOBJECT Charger
+    IFTRUE ChargeBattery
+    TEXTEND PointlessUse
+
+SCRIPT PointlessUse
+    TEXTEND PointlessUse
+
+
+SCRIPT ChargeBattery:
+    ISSTATE 1 2
+    IFTRUE PointlessUse
+    SET 1 2
+    LONGTEXT RechargedBattery
+    END
+
+
+SCRIPT UseBatteryOnLoader:
+    ISSTATE 1 1
+    IFTRUE PointlessUse
+    SET 1 4
+    SETITEMLOC RoverCh3 InsideBaseCh3
+    SETITEMLOC Battery_Inventory _LOST
+    LONGTEXT UseBatteryOnLoader
+    END
+
+SCRIPT WearLoaderCh3:
+    ISSTATELEQ 1 2
+    IFTRUE CannotWearLoaderBatteryEmpty
+    TEXTEND CannotWearLoaderNoReason
+
+
+SCRIPT LookRedButton:
+    TEXTEND LookRedButton
+SCRIPT PushRedButton:
+    ISSTATELEQ 1 4
+    IFTRUE TooEarlyToShutdown
+    ISSTATE 2 0
+    IFTRUE WhyShutdown
+    ISSTATE 4 0
+    IFTRUE NowhereToGo
+    JUMP ShutdownPowerplant
+
+SCRIPT LookCryopodCh3:
+    TEXTEND LookCryopodCh3
+SCRIPT LookReactor:
+    TEXTEND LookReactor
+
+SCRIPT TooEarlyToShutdown:
+    TEXTEND TooEarlyToShutdown
+SCRIPT WhyShutdown:
+    TEXTEND WhyShutdown
+SCRIPT NowhereToGo:
+    TEXTEND NowhereToGo
+
+###
+
+SCRIPT LookLichenHillside:
+    TEXTEND LookLichenHillside
+SCRIPT LookMossHillside:
+    TEXTEND LookMossHillside
+
+SCRIPT LookMossFlats:
+    TEXTEND LookMossFlats
+
+
+
+SCRIPT GoFlatsCh3:
+    GOEND FlatsCh3
+SCRIPT LookRoverFlatsCh3:
+    TEXTEND LookRoverFlatsCh3
+SCRIPT TalkToDaveFlatsCh3:
+    GOEND DaveFlats
+SCRIPT TalkAboutColony:
+    LONGTEXT TalkAboutColonyOnStep_1
+    END
+SCRIPT TalkAboutLifeOnStep:
+    LONGTEXT TalkAboutLifeOnStep_1
+    WAITFORFIRE
+    LONGTEXT TalkAboutLifeOnStep_2
+    WAITFORFIRE
+    LONGTEXT TalkAboutLifeOnStep_3
+    WAITFORFIRE
+    LONGTEXT TalkAboutLifeOnStep_4
+    WAITFORFIRE
+    END
+SCRIPT UseRoverBattery:
+    ISOBJECT RoverFlatsCh3
+    IFTRUE ReplaceRoverBattery
+    TEXTEND PointlessUse
+
+SCRIPT ReplaceRoverBattery:
+    LONGTEXT ReplaceRoverBattery
+    WAITFORFIRE
+    JUMP LastTripAndEnding
+
+
+SCRIPT GoUpCryobayCh3:
+    GOEND CryobayCh3
+
+SCRIPT GoInsideBaseCh3:
+    GOEND InsideBaseCh3
+
+SCRIPT LastTripAndEnding:
+    LONGTEXT LastLegOfJourney
+    WAITFORFIRE
+    GOEND GameEnd
+
+SCRIPT Chapter3Finale:
+    LONGTEXT Chapter3Ending_1
+    WAITFORFIRE
+    LONGTEXT CongratulationsGameOver
+    WAITFORFIRE
+    TO_MAIN_MENU

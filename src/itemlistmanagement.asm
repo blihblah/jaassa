@@ -4,6 +4,8 @@
 ;; Regenerate the list of hotspots at the current location.
 ;; This includes directions in which to move.		
 ScanLocationHotspots:
+        ld a, (PLAYER_LOCATION_PAGE)
+        call SwapCode
 		xor a
 		ld (VIEW_ITEM_CHOSEN), a
 		ld (VIEW_ITEM_LENGTH), a
@@ -21,7 +23,8 @@ ScanLocationHotspots:
 	.decreaseList:
 		inc hl
 		ld a, (hl) ;; Direction code
-		inc hl ;; Command code 
+		inc hl ;; Command code
+		inc hl ;; Script page
 		inc hl ;; Script pointer byte 1
 		inc hl ;; Script pointer byte 2
 		cp c
@@ -39,30 +42,50 @@ ScanLocationHotspots:
 		
 	.pastDirections:
 		;; Go through all items, find the ones that are here.
-		
+
+		ld a, (PLAYER_LOCATION_PAGE)
+		ld (LOOPVARS2), a
 		ld hl, PLAYER_LOCATION
 		ld e, (hl)
 		inc hl
 		ld d, (hl)
 		ex de, hl		
-		ld (LOOPVARS2), hl
+		ld (LOOPVARS2 + 1), hl
+
+		ld a, (ITEM_PAGE)
+	    call SwapCode
+
+	    ld a, (ITEM_ADDRESS_LIST)
+
 		ld a, C_ITEM_LOCAL_ICON
 		ld (ADD_TO_VIEW_LIST), a
 		call .findItemsAtAddress
-		
+
+		ld a, 0
+		ld (LOOPVARS2), a
 		ld hl, C_PLAYER_INVENTORY
-		ld (LOOPVARS2), hl
+		ld (LOOPVARS2 + 1), hl
 		ld a, C_ITEM_INVENTORY_ICON
 		ld (ADD_TO_VIEW_LIST), a
 		call .findItemsAtAddress
+		;; Revert to location's page.
+		ld a, (PLAYER_LOCATION_PAGE)
+		call SwapCode
 		ret
 				
 	.findItemsAtAddress:
-		ld hl, (ITEM_ADDRESS_LIST)
-		ld b, (hl)
+	    ld a, (ITEM_PAGE)
+	    call SwapCode
+		ld hl, (ITEM_ADDRESS_LIST + 1)
+		ld b, (hl) ;; b <- number of items. TODO: Make this a word, not a byte?
 		inc hl
 		
 	.loopItems:
+	    ld a, (ITEM_PAGE)
+	    call SwapCode
+	    ld a, (hl) ;; Read the page.
+	    ld (ITEM_RECORD_PAGE), a
+	    inc hl
 		ld e, (hl)
 		inc hl
 		ld d, (hl)
@@ -71,26 +94,34 @@ ScanLocationHotspots:
 		;; DE has the address of the item record.
 		push de
 		pop ix
-		ld d, (ix + 3)
-		ld e, (ix + 2)
+		call SwapCode
+
+		ld d, (ix + 4)
+		ld e, (ix + 3)
 		;; DE has now the RAM address.
 		push de
 		pop iy
-		ld d, (iy + 1)
-		ld e, (iy)
-		ld a, (LOOPVARS2)
+		ld d, (iy)
+		ld a, (LOOPVARS2) ; Page.
+		cp d
+		jp nz, .notHere
+		ld d, (iy + 2)
+		ld e, (iy + 1)
+		ld a, (LOOPVARS2 + 1)
 		cp e
 		jp nz, .notHere
-		ld a, (LOOPVARS2 + 1)
+		ld a, (LOOPVARS2 + 2)
 		cp d
 		jp nz, .notHere
 		
 		;; Item was here.
 		;ld a, (ix + 1)
 		ld a, ixh
-		ld (ADD_TO_VIEW_LIST + 2), a
+		ld (ADD_TO_VIEW_LIST + 3), a
 		;ld a, (ix)
 		ld a, ixl
+		ld (ADD_TO_VIEW_LIST + 2), a
+		ld a, (ITEM_RECORD_PAGE)
 		ld (ADD_TO_VIEW_LIST + 1), a
 		call AddItemToList
 	.notHere:
@@ -102,21 +133,25 @@ ScanLocationHotspots:
 AddItemToList:
 		push bc
 		ld a, (VIEW_ITEM_LENGTH)
-		ld e, a
 		rlca
-		add a, e ;; Multiplied by 3
+		rlca ;; Multiply by 4
 		ld d, 0
 		ld e, a
 		ld hl, VIEW_ITEM_LIST
 		add hl, de
-		ld a, (ADD_TO_VIEW_LIST)
-		ld (hl), a
-		inc hl
-		ld a, (ADD_TO_VIEW_LIST + 1)
-		ld (hl), a
-		inc hl
-		ld a, (ADD_TO_VIEW_LIST + 2)
-		ld (hl), a
+		ld de, ADD_TO_VIEW_LIST
+		ld bc, 4
+		ex de, hl
+		ldir
+
+		;ld a, (ADD_TO_VIEW_LIST)
+		;ld (hl), a
+		;inc hl
+		;ld a, (ADD_TO_VIEW_LIST + 1)
+		;ld (hl), a
+		;inc hl
+		;ld a, (ADD_TO_VIEW_LIST + 2)
+		;ld (hl), a
 
 		ld hl, VIEW_ITEM_LENGTH
 		inc (hl)
@@ -142,7 +177,8 @@ RefreshViewItemList:
 		ld a, c
 		;; Mul A by 3 to get the offset in list.
 		rlca
-		add a, c
+		rlca
+		;add a, c
 		ld e, a
 		ld d, 0
 		ld hl, VIEW_ITEM_LIST
@@ -168,12 +204,14 @@ RefreshViewItemList:
 	.isObject:
 		;; Data points to item record address.
 		
-		ld e, (hl)
-		inc hl
-		ld d, (hl)
-		ex de, hl
+		;ld e, (hl)
+		;inc hl
+		;ld d, (hl)
+		;ex de, hl
+
+		call UnrefPageHL
 		
-		call UnrefHL
+		call UnrefPageHL
 		;; DE has the item record address now.
 		ld (LOOPVARS2), hl
 		;; That is also the name of the item.
@@ -214,6 +252,7 @@ RefreshViewItemList:
 	.endItemLoop:
 		pop bc
 		pop hl
+		inc hl
 		inc hl
 		inc hl
 		inc hl

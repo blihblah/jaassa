@@ -4,7 +4,8 @@
 
 ExecuteScriptHL:
 		;; Script address is in HL.
-	
+	;ld a, (CURRENT_PAGE)
+	;ld (CURRENT_SCRIPT_PAGE), a
 	.nextCommand:
 		ld a, (hl)
 		inc hl
@@ -52,6 +53,10 @@ ExecuteScriptHL:
 		;; TODO: Add "IsItemLoc <item> <location>"
 		;; TODO: Implement SetTile
 		ret
+    .backToMyPage:
+        ld a, (CURRENT_SCRIPT_PAGE)
+        call SwapCode
+        ret
 		
 	.cmdEnd:
 		ret
@@ -61,45 +66,41 @@ ExecuteScriptHL:
 		jp .popPassTwo
 	.cmdSetItemLoc:
 		push hl ;;
-		call UnrefHL ;; Now has item ROM address.
+		call UnrefPageHL ;; Now has item ROM address.
+		inc hl ;; Past item name address.
 		inc hl
 		inc hl 
 		call UnrefHL ;; Now has item RAM address.
+		call .backToMyPage
 		ex de, hl
 		pop hl
+		inc hl ;; Past item page
 		inc hl
 		inc hl ;; Now points to new location
-		ld c, (hl)
-		inc hl
-		ld b, (hl)
-		inc hl
-		ld a, c
-		ld (de), a
-		inc de
-		ld a, b
-		ld (de), a
-		
+
+		;; Copy the three bytes' address.
+		ld bc, 3
+		ldir
 		jp .nextCommand
 	.cmdText:
 		push hl
-		call UnrefHL
+		call UnrefPageHL
 		call DisplayTextHL
-		jp .popPassTwo
+		call .backToMyPage
+		jp .popPassThree
 	.cmdIfTrue:
 		push hl
-		;ld e, (hl)
-		;ld d, 0
 		ld hl, GAME_STATE
-		;add hl, de
 		ld a, (hl)
 		and a
-		jp z, .popPassTwo
+		jp z, .popPassThree
 		pop hl
-		call UnrefHL
-		jp .nextCommand
+		ld a, (hl)
+		ld (CURRENT_SCRIPT_PAGE), a
+		call UnrefPageHL
+		jp ExecuteScriptHL
 	.cmdSet:
 		push hl
-		;inc hl
 		ld e, (hl)
 		inc hl
 		ld a, (hl)
@@ -112,17 +113,25 @@ ExecuteScriptHL:
 		push hl
 		ld a, 0
 		ld (GAME_STATE), a
+		ld a, (HL)
+		ld e, a
+		ld a, (PLAYER_LOCATION_PAGE)
+		xor e
+		jp nz, .popPassThree
+
+		inc hl
 		call UnrefHL
+
 		ld de, (PLAYER_LOCATION)
 		ld a, h
 		xor d
-		jp nz, .popPassTwo
+		jp nz, .popPassThree
 		ld a, l
 		xor e
-		jp nz, .popPassTwo
+		jp nz, .popPassThree
 		ld a, 1
 		ld (GAME_STATE), a
-		jp .popPassTwo
+		jp .popPassThree
 		
 	.cmdIsState:
 		xor a
@@ -138,7 +147,7 @@ ExecuteScriptHL:
 		cp b
 		jp nz, .popPassTwo
 		ld a, 1
-		ld (GAME_STATE), a		
+		ld (GAME_STATE), a
 		jp .popPassTwo
 		
 	.cmdSetTile:
@@ -148,36 +157,49 @@ ExecuteScriptHL:
 		call .movePlayer
 		ret
 	.cmdTextEnd:
-		call UnrefHL
+		call UnrefPageHL
 		call DisplayTextHL
+		;; We don't need to return to the script's page.
 		ret
 	.cmdTake:
 		push hl
-		call UnrefHL
+		call UnrefPageHL
 		inc hl
 		inc hl
+		inc hl
 		call UnrefHL
+		;; Set the player page.
+		ld a, 0
+		ld (hl), a
+		inc hl
 		ld de, C_PLAYER_INVENTORY
 		ld (hl), e
 		inc hl
 		ld (hl), d
-		jp .popPassTwo
+		call .backToMyPage
+		jp .popPassThree
 	
 	.cmdTakeEnd:
-		call UnrefHL
+		call UnrefPageHL
 		inc hl
 		inc hl
+		inc hl
 		call UnrefHL
+		ld a, 0
+		ld (hl), a
+		inc hl
 		ld de, C_PLAYER_INVENTORY
 		ld (hl), e
 		inc hl
 		ld (hl), d
+		call .backToMyPage
 		ret
 		
 	.cmdIsObject:
-		;; Three values.
-		;; object type (item, B), object addr (W)
-		;; object type (dir, B), direction (B), empty (B)
+		;; Four values.
+		;; object type (item, B), item page (B), object addr (W)
+		;; object type (dir, B), direction (B), empty (W)
+		;; TODO: Finish conversion!
 		ld a, 0
 		ld (GAME_STATE), a
 		ld a, (OBJECT_ADDR)
@@ -192,21 +214,27 @@ ExecuteScriptHL:
 		ld a, (OBJECT_ADDR + 1)
 		ld b, (hl)
 		xor b		
-		jp nz, .popPassTwo
+		jp nz, .popPassThree
 		ld a, (OBJECT_ADDR + 2)
 		inc hl
 		ld b, (hl)
-		jp nz, .popPassTwo
+		xor b
+		jp nz, .popPassThree
+		ld a, (OBJECT_ADDR + 3)
+		inc hl
+		ld b, (hl)
+		xor b
+		jp nz, .popPassThree
 	.isTrue:
 		ld a, 1
 		ld (GAME_STATE), a
-		jp .popPassTwo
+		jp .popPassThree
 	
 	.isObjectDirection:
 		ld a, (OBJECT_ADDR + 1)
 		ld b, (hl)
 		cp b
-		jp nz, .popPassTwo
+		jp nz, .popPassThree
 		jp .isTrue
 	
 	
@@ -223,7 +251,10 @@ ExecuteScriptHL:
 		jp .nextCommand
 
 	.cmdJump:
-		call UnrefHL
+	    ld a, (hl)
+	    ld (CURRENT_SCRIPT_PAGE), a
+		call UnrefPageHL
+
 		jp .nextCommand
 
 	.cmdIsStateLEQ:
@@ -255,6 +286,15 @@ ExecuteScriptHL:
 	    call PlaySound
 	    jp .popPassTwo
 
+	.popPassThree:
+	    ;; Typical ending for the script: pop the execution pointer back to HL
+	    ;; and increment it by 3 bytes (page + two-byte parameter)
+		pop hl
+		inc hl
+		inc hl
+		inc hl
+		jp .nextCommand
+
 	.popPassTwo:
 		;; Typical ending for the script: pop the code execution pointer
 		;; back to HL and increment it by 2 bytes, i.e., two-byte parameter
@@ -266,8 +306,10 @@ ExecuteScriptHL:
 		
 	.movePlayer:
 		;; Moves the player to another location and calls the related routines.
-		call UnrefHL
-		ld (PLAYER_LOCATION), hl	
+		call UnrefPageHL
+		ld (PLAYER_LOCATION_PAGE), a
+		ld (PLAYER_LOCATION), hl
+		call SwapCode
 		call RenderLocationViewport
 		call ScanLocationHotspots
 		call ExecuteLocationScript

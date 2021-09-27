@@ -5,18 +5,46 @@ RenderLocationViewport:
         ;; Reset the view to black for redrawing.
 		call ResetView
 		call PlayMovementSound
+		ld a, (PLAYER_LOCATION_PAGE)
+		call SwapCode
 		ld hl, (PLAYER_LOCATION)
-		inc hl
-		inc hl
-		ld e, (hl)
-		inc hl
-		ld d, (hl)
-		inc hl
-		push hl
+		ld ix, (PLAYER_LOCATION) ;;
+
+		;; ix + 0  = location text page
+		;;    + 1  = location text address
+		;;    + 2  = location text address
+		;; ix + 3  = tileset pattern page
+		;;    + 4  = tileset pattern address
+		;;    + 5  = tileset pattern address
+		;; ix + 6  = tileset colours address
+		;;    + 7  = tileset colours address
+		;; ix + 8  = palette address
+		;;    + 9 = palette address
+		;; ix + 10 = 14x14 gfx view address
+		;;    + 11 = 14x14 gfx view address
+		;; ix + 12 = directions count
+
+		ld l, (ix + 4)
+		ld h, (ix + 5)
+		ld (TILE_PATTERN_TABLE), hl
+		ld l, (ix + 6)
+		ld h, (ix + 7)
+		ld (TILE_COLOUR_TABLE), hl
+
+		ld a, (ix + 3) ;; Get the tile gfx page.
+		ld (TILEGFXPAGE), a
+        ;; Read palette to HL
+        ld e, (ix + 8)
+        ld d, (ix + 9)
+        call SwapCode
 		call UnpackTilePalette
-		pop hl
-		call UnrefHL
-		push hl
+		ld a, (PLAYER_LOCATION_PAGE)
+		call SwapCode
+		;; Load to HL the 14x14 view address
+		ld a, (TILEGFXPAGE)
+		ld l, (ix + 10)
+		ld h, (ix + 11)
+		call SwapCode
 
 		;; Now, loop through the tiles.
 		;; First 7 lines with 14 tiles on each.
@@ -32,11 +60,25 @@ RenderLocationViewport:
 		call .singleLoop
 
 		;; Now, the colour table.
+		ld a, (PLAYER_LOCATION_PAGE)
+		call SwapCode
+		ld l, (ix + 6)
+		ld h, (ix + 7)
+        ld a, (TILEGFXPAGE)
+        call SwapCode
 		call UnpackColourTable
+
+		ld a, (PLAYER_LOCATION_PAGE)
+		call SwapCode
 		call WaitForBlank
 
-		pop hl
+		;pop hl
+		;ld (LOOPVARS), hl
+		ld l, (ix + 10)
+		ld h, (ix + 11)
 		ld (LOOPVARS), hl
+		ld a, (TILEGFXPAGE)
+		call SwapCode
 
 		;; First 7 lines
 		ld b, 7 * 14

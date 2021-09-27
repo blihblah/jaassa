@@ -1,4 +1,11 @@
-FNAME "terraforming.rom"
+FNAME "step_1.3.rom"
+
+
+
+;; TODO:
+;; - IsLoc -command is broken.
+;;
+
 
 org $4000,$7fff
 
@@ -55,13 +62,10 @@ Seg_P8000_SW:	equ	07000h	; Segment switch for page 8000h-BFFFh (ASCII16k)
 
 ;; Pages in game ROM:
 ;; 0: program code
-;; 1: scripts and item records
-;; 2: strings
-;; 3: strings
-;; 4: graphics + locations
-;; 5: graphics + locations
-;; 6: graphics + locations
-;; 7: graphics + locations
+;; 1: misc. gfx
+;; 2: item data
+;; 3- : all the rest
+
 
 ;; Maybe actually use only "even" addresses in gfx pages to have twice as many
 ;; pages for graphics + locations? i.e., the page number would use three bits.
@@ -143,7 +147,7 @@ MainLoop:
 
 	;call LoadSprites
     ;; Load the correct page.
-    ld a, (GAME_PAGE)
+    ld a, (PLAYER_LOCATION_PAGE)
     call SwapCode
 
 	call RenderLocationViewport
@@ -157,17 +161,40 @@ MainLoop:
 	
 GameInit:
     ;; Load the correct page.
-    ld a, (GAME_PAGE)
-    call SwapCode
+    ;;ld a, (GAME_PAGE)
+
+    ;call SwapCode
     ;; Read the header values to RAM.
 
+    ;; Forget the split to episodes for now.
     ld hl, EPISODEHEADERSTART
     ld de, START_LOCATION
-    ld bc, 10
+    ld bc, 11
     ldir
 
-	ld hl, (START_LOCATION)
+    ;; Now, set the starting location.
+    ld a, (GAME_PAGE)
+    sub a, 2
+    ld b, a
+    rlca
+    add a, b
+    ld de, Chapter1StartLoc
+    ld h, 0
+    ld l, a
+    add hl, de
+    ld bc, 3
+    ld de, START_LOCATION
+    ldir
+
+
+
+
+
+  .firstLocationSet:
+	ld hl, (START_LOCATION + 1)
 	ld (PLAYER_LOCATION), hl
+	ld a, (START_LOCATION)
+	ld (PLAYER_LOCATION_PAGE), a
 	ld a, 0
 	ld (POINTER_INDEX), a
 	call UpdatePointerY
@@ -175,7 +202,17 @@ GameInit:
 	call InitializeItemLocations
 	call ClearInventoryBox
 	ret
-	
+
+Chapter1Startloc:
+    DB page__LOCATION_homech1
+    DW __LOCATION_homech1
+Chapter2Startloc:
+    DB page__LOCATION_landerseat
+    DW __LOCATION_landerseat
+Chapter3StartLoc:
+    DB page__LOCATION_homech3
+    DW __LOCATION_homech3
+
 WaitForBlank:
 	;; Wait for the next VDP blank. Probably could be done
 	;; smarter.
@@ -393,10 +430,14 @@ Decompress:
     pop ix 
 	ret	
 
-	
-GetTextToBuffer:
-	;; IY = pointer to compressed text location.
-	
+
+;; CONVERTED:
+GetTextToBufferWithPage:
+	;; IY = pointer to compressed text location (incl.
+	ld a, (iy)
+	call SwapCode
+	inc iy
+GetTextToBuffer: ;; Call this for text not on data pages
 	call ClearTextbox
 	;; First, unpack text to TEXT_BUFFER.
 	ld ix, TEXT_HUFFDICT
@@ -409,7 +450,6 @@ GetTextToBuffer:
 	
 	
 GetTextToLineBuffer:
-	;call ClearTextbox
 	;; First, unpack text to TEXT_BUFFER.
 	ld ix, TEXT_HUFFDICT
 	ld hl, TEXT_BUFFER
@@ -586,9 +626,8 @@ TargetMenuLoop:
 		ld a, (VIEW_ITEM_CHOSEN)
 		ld de, VIEW_ITEM_LIST
 		ld h, 0
-		ld l, a
 		add a, a
-		add a, l
+		add a, a
 		ld l, a
 		add hl, de
 		;; HL points to the chosen view item.
@@ -596,8 +635,21 @@ TargetMenuLoop:
 		ld a, (hl)
 		ld (OBJECT_ADDR), a
 		inc hl
-		call UnrefHL
-		ld (OBJECT_ADDR + 1), hl
+
+		ld a, (hl)
+		ld (OBJECT_ADDR + 1), a
+		inc hl
+
+		ld a, (hl)
+		ld (OBJECT_ADDR + 2), a
+		inc hl
+
+		ld a, (hl)
+		ld (OBJECT_ADDR + 3), a
+		inc hl
+
+		;call UnrefHL
+		;ld (OBJECT_ADDR + 1), hl
 		ret
 
 	.cancelPressed:
@@ -705,16 +757,17 @@ CommandMenuLoop:
 		ld l, a
 		ld h, 0
 		add hl, hl
-		add hl, de
+		add hl, hl
 		ld de, COMMAND_LIST	
 		add hl, de
 		ld a, (hl)
 		
 		cp CMD_USE
 		jp z, .getTarget
-		
+
 		inc hl
-		call UnrefHL
+		call UnrefPageHL
+		ld (CURRENT_SCRIPT_PAGE), a
 		call ExecuteScriptHL
 		jp .commandCleanup
 		
@@ -726,7 +779,7 @@ CommandMenuLoop:
 		ld a, (OBJECT_ADDR)
 		cp 0
 		jp z, .canceledTarget
-		call UnrefHL
+		call UnrefPageHL
 		call ExecuteScriptHL
 		jp .commandCleanup
 		
@@ -782,11 +835,14 @@ CommandMenuLoop:
 ExecuteLocationScript:
 		;; Load the address of the entrance script for the current location
 		;; and execute it.
+		ld a, (PLAYER_LOCATION_PAGE)
+		call SwapCode
 		ld hl, (PLAYER_LOCATION)
-		ld de, 2+2+2
+		ld de, 3+3+2+2+2
+		;; Loop over the directions.
 		add hl, de
 		ld b, (hl)
-		ld de, 4
+		ld de, 5
 		ld a, b
 		inc hl
 		cp 0
@@ -795,9 +851,15 @@ ExecuteLocationScript:
 		add hl, de
 		djnz .loop
 	.execute:
+	    ld a, (hl)
+	    ld (CURRENT_SCRIPT_PAGE), a
+	    inc hl
 		call UnrefHL
+		call SwapCode
 		;; HL now points to the start script.
 		call ExecuteScriptHL
+		ld a, (PLAYER_LOCATION_PAGE)
+		call SwapCode
 		ret
 	
 
@@ -851,7 +913,7 @@ RenderCommandList:
 		
 		pop hl
 		ld a, (hl)
-		inc hl
+		;inc hl
 		
 		;; A has the verb index.
 		;; HL points to the start of script.
@@ -883,6 +945,7 @@ RenderCommandList:
 		inc hl
 		inc hl
 		inc hl
+		inc hl
 		djnz .nextVerb
 	ret
 
@@ -902,7 +965,7 @@ ScanObjectCommands:
 		add hl, hl
 		ld d, 0
 		ld e, a
-		add hl, de ;; HL <- A * 3
+		add hl, hl ;; HL <- A * 4
 		ld de, VIEW_ITEM_LIST
 		add hl, de
 		;; HL <- pointer to the item record.
@@ -913,6 +976,8 @@ ScanObjectCommands:
 		jp .isItem
 	
 	.isDirection:
+	    ld a, (PLAYER_LOCATION_PAGE)
+	    call SwapCode
 		ld a, (hl)
 		ld c, a
 		;; A = direction code
@@ -923,7 +988,7 @@ ScanObjectCommands:
 		ld a, (hl)
 		cp c
 		jp z, .processThisDirectionScript
-		ld de, 4
+		ld de, 5
 		add hl, de
 		jp .endLoopDirections
 	.processThisDirectionScript:
@@ -932,12 +997,14 @@ ScanObjectCommands:
 		ld (ADD_TO_VIEW_LIST), a
 		inc hl
 		push hl
+		ld a, (hl)
+		ld (ADD_TO_VIEW_LIST + 1), a
+		inc hl
 		call UnrefHL
-		ld (ADD_TO_VIEW_LIST + 1), hl
-		;ld (ADD_TO_VIEW_LIST + 2), h
+		ld (ADD_TO_VIEW_LIST + 2), hl
 		call .addVerbToList
 		pop hl
-		ld de, 2
+		ld de, 3
 		add hl, de
 		jp .endLoopDirections
 		
@@ -948,11 +1015,10 @@ ScanObjectCommands:
 	.addVerbToList:
 		call AddCommandToList
 		ret
-
 	
 	.isItem:
-		call UnrefHL
-		ld de, 4
+		call UnrefPageHL
+		ld de, 5
 		add hl, de
 		ld b, (hl) ;; Number of scripts.
 		;; HL = item address.
@@ -969,6 +1035,9 @@ ScanObjectCommands:
 		inc hl
 		ld a, (hl)
 		ld (iy + 2), a		
+		inc hl
+		ld a, (hl)
+		ld (iy + 3), a
 		push hl
 		call AddCommandToList
 		pop hl
@@ -985,7 +1054,8 @@ AddCommandToList:
 		ld a, (COMMAND_LIST_LENGTH)
 		ld e, a
 		rlca
-		add a, e ;; Multiplied by 3
+		rlca ;; Multiplied by 4
+		;add a, e ;; Multiplied by 3
 		ld d, 0
 		ld e, a
 		ld hl, COMMAND_LIST
@@ -997,6 +1067,9 @@ AddCommandToList:
 		ld (hl), a
 		inc hl
 		ld a, (ADD_TO_VIEW_LIST + 2)
+		ld (hl), a
+		inc hl
+		ld a, (ADD_TO_VIEW_LIST + 3)
 		ld (hl), a
 
 		ld hl, COMMAND_LIST_LENGTH
@@ -1028,8 +1101,13 @@ FillTextBufferWithSpace:
 	
 
 RenderLocationDescription:
-		ld hl, (PLAYER_LOCATION)
-		call UnrefHL
+        ld hl, PLAYER_LOCATION_PAGE
+        ;ld a, (hl)
+        ;inc hl
+        ;call UnrefHL
+        call UnrefPageHL
+        call UnrefPageHL
+
 		call DisplayTextHL
 		ret
 		
@@ -1169,12 +1247,27 @@ UpdateTextBoxInFullSlow:
 
 UpdatePlayerLocation:
 		ld hl, (PLAYER_LOCATION)
-		ld de, 4 + 2
+		ld de, 12
 		add hl, de
 		ld (PLAYER_LOCATION_DIRECTIONS), hl
 		ret
 
-		
+
+UnrefPageHL:
+        ;; HL points to (byte)page, (word)address
+        ;; so change to the new page and return address in HL
+
+	    push de
+	    ld a, (hl)
+	    inc hl
+	    ld e, (hl)
+	    inc hl
+	    ld d, (hl)
+	    ex de, hl
+	    pop de
+	    call SwapCode
+	    ret
+
 UnrefHL:
     ;; Read the values in (HL) and (HL+1),
     ;; save those values in HL instead.
@@ -1306,15 +1399,20 @@ DisplayPrompt:
 
 ;; Initialize item locations
 InitializeItemLocations:
-		ld hl, (ITEM_ADDRESS_LIST)
+        ld a, (ITEM_ADDRESS_LIST)
+        call SwapCode
+		ld hl, (ITEM_ADDRESS_LIST + 1)
 		ld e, (hl)
 		ld d, 0
 		ex de, hl
+		push hl
+		pop de
 		add hl, hl
+		add hl, de ;; * 3, third byte for page.
 		ld b, h
 		ld c, l
 		
-		ld hl, (ITEM_INIT_LOCATIONS)
+		ld hl, (ITEM_INIT_LOCATIONS + 1)
 		ld de, ITEM_RAM_LOCATIONS
 		ldir		
 		ret
@@ -1699,7 +1797,8 @@ TEXT_HUFFDICT:
 
 SPRITE_GFX:
 		INCBIN "incbins/gfx_sprites.bin"
-		
+INCLUDE "pregen/chapterconstants.asm_pregen"
+
 end_permanentData:
 
 ;; Fill in the extra space of the page.
@@ -1731,96 +1830,30 @@ end_gfx:
 ;; Fill in the extra space of the page.
 ds PageSize - ($ - 8000h),255
 
-org	$8000, $BFFF	; page 2
 
-;; CHAPTER 1
-
-EPISODEHEADERSTART:
-    INCLUDE "pregen/chapterconstants.asm_pregen"
-;; Chapter contents
-INCLUDE "pregen/tilegfx.asm_pregen"
-INCLUDE "pregen/items_rom.asm_pregen"
-INCLUDE "pregen/scripts.asm_pregen"
-INCLUDE "pregen/locations.asm_pregen"
-INCLUDE "pregen/palette.asm_pregen"
-INCLUDE "pregen/gfxview.asm_pregen"
-INCLUDE "pregen/texts.asm_pregen"
-
-END_CHAPTER_1:
-;ds ((($-1)/$4000)+1)*$4000-$
-ds PageSize - ($ - $8000),255
-
-	org	$8000, $BFFF	; page 3
-
-;; CHAPTER 2
-    INCLUDE "pregen/chapterconstants_chapter2.asm_pregen"
-;; Chapter contents
-INCLUDE "pregen/tilegfx_chapter2.asm_pregen"
-INCLUDE "pregen/items_rom_chapter2.asm_pregen"
-INCLUDE "pregen/scripts_chapter2.asm_pregen"
-INCLUDE "pregen/locations_chapter2.asm_pregen"
-INCLUDE "pregen/palette_chapter2.asm_pregen"
-INCLUDE "pregen/gfxview_chapter2.asm_pregen"
-INCLUDE "pregen/texts_chapter2.asm_pregen"
-
-
-END_CHAPTER_2:
-
-ds PageSize - ($ - $8000),255
-
-	org	$8000, $BFFF	; page 4
-
-;; CHAPTER 3
-    INCLUDE "pregen/chapterconstants_chapter3.asm_pregen"
-;; Chapter contents
-INCLUDE "pregen/tilegfx_chapter3.asm_pregen"
-INCLUDE "pregen/items_rom_chapter3.asm_pregen"
-INCLUDE "pregen/scripts_chapter3.asm_pregen"
-INCLUDE "pregen/locations_chapter3.asm_pregen"
-INCLUDE "pregen/palette_chapter3.asm_pregen"
-INCLUDE "pregen/gfxview_chapter3.asm_pregen"
-INCLUDE "pregen/texts_chapter3.asm_pregen"
-END_CHAPTER_3:
-ds PageSize - ($ - $8000),255
-	org	8000h,0BFFFh	; page 5
-
-	db "Text from segment "
-	ds PageSize - ($ - 08000h),255
-
-		org	8000h,0BFFFh	; page 6
-
-	db "Text from segment "
-	ds PageSize - ($ - 08000h),255
-
-		org	8000h,0BFFFh	; page 7
-
-	db "Text from segment 7"
-	ds PageSize - ($ - 08000h),255
-
-	;	org	8000h,0BFFFh	; page 8
-
-	;db "Text from segment 7"
-	;ds PageSize - ($ - 08000h),255
-
+    INCLUDE "pregen/datapages.asm_pregen"
 
 org $c800
 
 INCLUDE "pregen/items_ram.asm_pregen"
 
 ;; Copied from the page header
-START_LOCATION: RW 1 ;;START_LOCATION ;; Chapter start location
-TILE_COLOUR_TABLE: RW 1 ;; TILE_COLOUR_TABLE ;; Tile colour table
+START_LOCATION: RB 3 ;;START_LOCATION ;; Chapter start location
+ITEM_ADDRESS_LIST: RB 3 ;; ITEM_ADDRESS_LIST ;; Item address list
+ITEM_INIT_LOCATIONS: RB 3 ;; ITEM_INIT_LOCATIONS ;; Initial item locations
+ITEM_PAGE: RB 1
+TILE_COLOUR_TABLE: RB 3 ;; TILE_COLOUR_TABLE ;; Tile colour table
 TILE_PATTERN_TABLE: RW 1 ;; TILE_PATTERN_TABLE ;; Tile pattern table
-ITEM_ADDRESS_LIST: RW 1 ;; ITEM_ADDRESS_LIST ;; Item address list
-ITEM_INIT_LOCATIONS: RW 1 ;; ITEM_INIT_LOCATIONS ;; Initial item locations
 
 LATEST_VDP_INTERRUPT: RB 1
 END_BYTE: RB 1
+TILEGFXPAGE: RB 1
 
+PLAYER_LOCATION_PAGE: RB 1
 PLAYER_LOCATION: RW 1 ;; Memory pointer to the location record
 PLAYER_LOCATION_DIRECTIONS: RW 1 ;; Memory pointer to inside the location record
 
-ITEM_LOCATIONS: RB 3 * ITEM_COUNT ;; Memory pointers to the item locations.
+;ITEM_LOCATIONS: RB 3 * ITEM_COUNT ;; Memory pointers to the item locations.
 
 TEXTWINDOW: RB 30*6 ;; Not 32*8 to leave margins.
 
@@ -1834,9 +1867,11 @@ COMMAND_LIST: RB C_ITEM_LIST_VISIBLE_LEN * 4 ;; 4 bytes per command; code + scri
 
 CONTROL_READ: RB 1 ;; 0 = nothing, 1-8 = stick, 16 = fire pressed, 32 = esc/fire2 pressed
 
+ITEM_RECORD_PAGE: RB 1
+
 ITEM_COUNT: EQU 20
 
-VIEW_ITEM_LIST: RW 100 ;; Addresses to directions, hotspots, items present.
+VIEW_ITEM_LIST: RB 100*3 ;; Addresses to directions, hotspots, items present.
 VIEW_ITEM_LENGTH: RB 1
 VIEW_ITEM_OFFSET: RB 1
 VIEW_ITEM_CHOSEN: RB 1
@@ -1847,10 +1882,10 @@ GAME_PAGE: RB 1
 
 TEXT_BUFFER: RB C_TEXT_BUFFER_LENGTH
 RENDER_HELP: RW 1
-LOOPVARS: RW 1
-LOOPVARS2: RW 1
+LOOPVARS: RB 3
+LOOPVARS2: RB 3
 
-ADD_TO_VIEW_LIST: RB 3 ;; Type (1B), mem address for it (2B)
+ADD_TO_VIEW_LIST: RB 4 ;; Type (1B), mem address for it (3B)
 
 LEN_BASECHARS: EQU 75
 LEN_UICHARS: EQU 30
@@ -1880,7 +1915,7 @@ _NO_OF_SPRITES: EQU 4
 
 SPRITE_VALS: RB 4
 
-OBJECT_ADDR: RB 3
+OBJECT_ADDR: RB 4
 
 COMMAND_EXECUTED: RB 1
 
@@ -1889,6 +1924,7 @@ TEXT_DELAY_ACTIVE: RB 1
 LATEST_MAIN_STEP: RB 1
 
 CURRENT_PAGE: RB 1 ;; Which ROM page is currently displayed.
+CURRENT_SCRIPT_PAGE: RB 1 ;; When we're executing a script...
 PAGE_TEMP: RB 1 ;; Help in keeping the current page number
 PAGE_BASE_INDEX: RB 1
 C_ITEM_LIST_VISIBLE_LEN: equ 14
