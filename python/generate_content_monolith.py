@@ -1228,7 +1228,7 @@ def merge_colour_codes_alt2(all_colours):
                             (others + [clr1], ccode)
                         )
                 compatibles.extend(to_add)
-                MAX_EVALS = 1000
+                MAX_EVALS = 500
                 if len(compatibles) > MAX_EVALS:
                     opts = [(len(k), k, v) for k, v in compatibles]
                     opts.sort(reverse=True)
@@ -1244,18 +1244,26 @@ def merge_colour_codes_alt2(all_colours):
     print("    Colour schemes used", len(set(remap.values())), ", originally", len(all_colours))
     return remap
 
-def are_colours_compatible(colcode1, colcode2):
+def are_colours_compatible(colcode1, colcode2, debug=False):
     ccodes = []
     for c1, c2 in zip(colcode1, colcode2):
         cols1 = set([c1 & 15, (c1 >> 4)])
         cols2 = set([c2 & 15, (c2 >> 4)])
+        if debug:
+            print(c1, cols1, c2, cols2)
         cm = cols1 | cols2
         cm2 = cm - set([0])
         if len(cm2) > 2:
+            if debug:
+                print("Not compatible")
             return False, []
         c1, c2 = min(cm2), max(cm2)
 
         ccodes.append((c1 << 4) + c2)
+        if debug:
+            print("Added", ccodes[-1])
+    if debug:
+        print("Was compatible.")
     return True, tuple(ccodes)
 
 def split_tilegfx(cfg, data):
@@ -1301,17 +1309,20 @@ def split_tilegfx(cfg, data):
         size = len(tiles) * 9
         colours_used = merge_tile_colours(tiles)
         size += len(set(colours_used.values())) * 8
+        size += (14 * 14 + 14 * 14 * 2)
         print(gfxfile, size)
         bundles.append(
             ([gfxfile], size, tiles, colours_used)
         )
 
+
+    max_loops = 4
     quick = False
     if not quick:
 
         found = True
         by_tiles = {}
-        while found:
+        while found and max_loops > 0:
             found = False
             # Estimate the size of all pairs of location bundles
             pairwise_sizes = []
@@ -1329,11 +1340,17 @@ def split_tilegfx(cfg, data):
                 diff_clrs = len(set(colours_used.values()))
                 size = 8 * diff_clrs + 9 * len(tiles)
 
+                # 14 *14 * 2 = overestimate of palette length.
+                size += (14*14 + 14 * 14 * 2) * len(p1[0] + p2[0])
+
                 if diff_clrs > 254:
                     # Exceeds size limits, cannot merge.
                     continue
                 if size > 16000:
                     # Exceeds page size (with safety margin)
+                    continue
+                if size - (p1[1] + p2[1]) == 0:
+                    print("Ignoring a solution that wouldn't improve")
                     continue
                 pairwise_sizes.append(
                     (float(size) - (p1[1] + p2[1]), size, (p1, p2),
@@ -1342,7 +1359,9 @@ def split_tilegfx(cfg, data):
             if len(pairwise_sizes) > 0:
                 found = True
                 best = min(pairwise_sizes)
-                print("Merging", best)
+                print("Merging to save", -best[0], "bytes with max size",
+                      best[1])
+                print(best[2][0][0], best[2][1][0])
                 size, parts = best[1], best[2]
                 bundles = [k for k in bundles if
                            k not in parts]
@@ -1579,11 +1598,12 @@ def combine_elements(cfg, on_first_page, others):
 
     # Now, make the number of pages a power of 2.
     next_lim = 1
-    page_index += 1
     while next_lim < page_index:
         next_lim *= 2
+    print("Page limit", next_lim, "; current last page", page_index)
     while page_index < next_lim:
         my_fn = fn2.format(page_index)
+        by_page.append((page_index, my_fn))
         with open("../src/" + my_fn, 'w') as f:
             f.write(";; Empty page, used to make the number of pages a power of 2")
         page_index += 1
