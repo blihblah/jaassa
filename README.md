@@ -21,3 +21,7 @@ python/generate_content.py reads resources/penguingamecontent.cfg and goes on to
 
 See resources/penguingamecontent.cfg; that file contains all the data for items, locations etc.
 See resources/penguingamescripts.script; that file contains the scripts the engine will invoke.
+
+Note:
+-----
+See also the branch "terraforming" to see another game (Step, from 2021) using a later version of the game.
